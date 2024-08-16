@@ -130,12 +130,17 @@
   
   # The first requirement is to format taxonomically collapsed tables, if directed to do so
   TransDataCollapsed <- reactive({
+    browser()
+    req(input$MainFile)
+    req(input$MetaFile)
     ASVTable <- MainASVTable()
     
     # If collapse table checkbox is checked, then transform. Otherwise, leave unaltered.
     if (input$IsMainCollapsed == TRUE) {
       ASVTable$Consensus.Lineage <- ASVTable$Feature.ID # Set the feature ID to imitate the taxonomy in an uncollapsed table
       ASVTable$rowID <- 1:nrow(ASVTable) # Add a column of unique numbers to imitate unique feature IDs
+      ASVTable$ReprSequence <- 1:nrow(ASVTable)
+      ASVTable <- ASVTable %>% mutate(ReprSequence = "Not Applicable")
     } else {
       if (input$IsMainCollapsed == FALSE) {
           ASVTable$rowID <- 1:nrow(ASVTable) # Add a column called rowID; if present it will be overwritten, so user caution is advised
@@ -154,7 +159,7 @@
   # Now we make a key file that will keep Feature ids, row ids, taxonomy, and representative sequence information properly associated with samples
   # This is the only location in which taxonomic identifiers, labels, or otherwise should be modified so that everything is consistent.
   FeatureDataKey <- reactive({
-    
+    browser()
     ASVTable <- TransDataCollapsed()
     
     FeatureKey <- data.frame(FeatureID = ASVTable$Feature.ID, 
