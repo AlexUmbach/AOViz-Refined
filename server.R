@@ -14,7 +14,7 @@
   output$PcoaTableOut <- renderDT(NULL)
   output$RankedTableOut <- renderDT(NULL)
   output$RankedPlotOut <- renderDT(NULL)
-  output$UnifracPlotOut <- renderDT(NULL)
+  output$UniPlotOut <- renderDT(NULL)
   
   
 # ---- Load the data files ----
@@ -33,12 +33,13 @@
   # Output to the main panel of the page
   output$MainTableOut <- renderDataTable({
     req(input$MainFile)
-    read.table(
+    Table <- read.table(
       file = input$MainFile$datapath,
       fill = TRUE,
       header = TRUE,
       sep = "\t"
     )
+    head(Table, 3)
   })
   
   # Upload the main metadata table
@@ -51,14 +52,15 @@
     )
   })
   # Output to the main panel of the page
-  output$MetaTable <- renderDataTable({
+  output$MetaTableOut <- renderDataTable({
     req(input$MetaFile)
-    read.table(
+    Table <- read.table(
       file = input$MetaFile$datapath,
       fill = TRUE,
       header = TRUE,
       sep = "\t"
     )
+    head(Table, 6)
   })
   
   # Upload the optional ASV list file
@@ -72,18 +74,20 @@
   })
   
   # Output to the main panel of the page
-  output$ContamTable <- renderDataTable({
+  output$ContamTableOut <- renderDataTable({
     req(input$ContamFile)
-    read.table(
+    Table <- read.table(
       file = input$ContamFile$datapath,
       fill = TRUE,
       header = TRUE,
       sep = "\t"
     )
+    head(Table, 6)
   })
   
 # ---- Data pre processing ----
-  # Now that the files are uploaded and stored, they have to be filtered to eliminate missing data in both the primary ASV table and the metadata file.     # This means filtering samples from both data tables. 
+  # Now that the files are uploaded and stored, they have to be filtered to eliminate missing data in both the primary ASV table and
+  # the metadata file. This means filtering samples from both data tables. 
   
   # Start by removing samples in the ASV table that are not present in the metadata tables
   MainASVTable <- reactive({
@@ -125,12 +129,18 @@
     MetaTable
   })
   
+  # The main contaminant table
+  MainContamTable <- reactive({
+    Table <- ContamDataFileUpload()
+    rownames(Table) <- Table$Feature.ID
+    Table
+  })
+  
 # ---- Data processing ----
   # We now process the main ASV table to format taxonomy labels and unique identifiers necessary for downstream visualizations and processing. 
   
   # The first requirement is to format taxonomically collapsed tables, if directed to do so
   TransDataCollapsed <- reactive({
-    browser()
     req(input$MainFile)
     req(input$MetaFile)
     ASVTable <- MainASVTable()
@@ -148,18 +158,12 @@
     }
     ASVTable
   })
-  
-  # Show this table in the main panel
-  output$ProcessedMainTable <- renderDataTable({
-    Table <- TransDataCollapsed()
-    output$proc_maintext <- renderText("This is your processed data")
-    Table
-  })
-  
-  # Now we make a key file that will keep Feature ids, row ids, taxonomy, and representative sequence information properly associated with samples
-  # This is the only location in which taxonomic identifiers, labels, or otherwise should be modified so that everything is consistent.
+
+  # Now we make a key file that will keep Feature ids, row ids, taxonomy, and representative sequence information 
+  # properly associated with samples. This is the only location in which taxonomic identifiers, labels, or otherwise 
+  # should be modified so that everything is consistent.
   FeatureDataKey <- reactive({
-    browser()
+    
     ASVTable <- TransDataCollapsed()
     
     FeatureKey <- data.frame(FeatureID = ASVTable$Feature.ID, 
@@ -180,18 +184,18 @@
     labels <- gsub("(;Ambiguous_taxa)", ";s__Ambiguous_taxa", labels)
     
     # Truncate taxonomic lineages for readability (default is "Yes")
-    if (input$TruncateTaxa == "Yes") {
-      labels <- paste(";", sep = "", labels)
-      labels <- gsub("(;\\s*Ambiguous_taxa)", "", labels)
-      labels <- gsub("(uncultured.*)", "", labels)
-      labels <- gsub("(__uncultured.*)", "", labels)
-      labels <- gsub("(unidenti.*)", "", labels)
-      labels <- gsub("(__unidenti.*)", "", labels)
-      labels <- gsub("(;.__Ambiguous_taxa)", "", labels)
-      labels <- gsub("(;._Ambiguous_taxa)", "", labels)
-      labels <- gsub("(;s__$)", "", labels)
-      labels <- gsub("(;g__$)", "", labels)
-    }
+    # if (input$TruncateTaxa == "Yes") {
+    labels <- paste(";", sep = "", labels)
+    labels <- gsub("(;\\s*Ambiguous_taxa)", "", labels)
+    labels <- gsub("(uncultured.*)", "", labels)
+    labels <- gsub("(__uncultured.*)", "", labels)
+    labels <- gsub("(unidenti.*)", "", labels)
+    labels <- gsub("(__unidenti.*)", "", labels)
+    labels <- gsub("(;.__Ambiguous_taxa)", "", labels)
+    labels <- gsub("(;._Ambiguous_taxa)", "", labels)
+    labels <- gsub("(;s__$)", "", labels)
+    labels <- gsub("(;g__$)", "", labels)
+    # }
     
     # Remove the prefixes associated with SILVA classifiers (e.g., D_*__ or p_, f_)
     labels <- gsub("(D_.__)", "", labels)
@@ -224,27 +228,11 @@
     FeatureKey$Labels <- labels
     FeatureKey$Taxon <- paste(gsub(".*;", "", FeatureKey$Labels), FeatureKey$rowID, sep = "_")
     
-    # FullLineage <- data.frame(paste(FeatureKey$Consensus.Lineage, data_tran$rowID, sep = "_"))
-    # lineage_OTU <- as.data.frame(paste(gsub(".*;", "", labels), data_tran$rowID, sep = "_"))
-    # colnames(lineage_OTU) <- "TaxaName"
-    # colnames(full_lineage) <- "TaxaName"
-    # rownames(data_tran) <- full_lineage$TaxaName
-    # data_tran$appended_taxonomy <- full_lineage$TaxaName
-    # 
-    # ## Keep this unfiltered
-    # unfiltered_table <- data_tran
-    # unfiltered_table
     FeatureKey
   })
   
-  # Show this the FeatureKey in the main panel
-  output$ProcessedFeatureTable <- renderDataTable({
-    Table <- FeatureDataKey()
-    output$proc_maintext <- renderText("This is your processed data")
-    Table
-  })
-  
   # Generate a table containing only count data, using the FeatureIDs as rownames to track data
+  # Also remove low-abundance sequences, if so desired
   FilteredTable <- reactive({
     ASVTable <- MainASVTable()
     
@@ -255,6 +243,33 @@
                       "ReprSequence"
                       )
     ASVTable <- ASVTable[,!(names(ASVTable) %in% ColsToFilter)]
+    
+    # Set all reads below a threshold as 0; any taxa with zero reads will be removed downstream
+    if (input$RemoveLowReads == TRUE) {
+      ASVTable[ASVTable < input$ReadThreshold] <- 0
+      ASVTable
+    }
+    
+    # Set contaminant reads to zero
+    if (input$ContamChoice == "Remove"){
+      Contaminants <- MainContamTable()
+      Matches <- intersect(rownames(ASVTable),rownames(Contaminants))
+      ASVTable[Matches, !(colnames(ASVTable) %in% c("OTU.ID",
+                                                    "Feature.ID",
+                                                    "rowID",
+                                                    "Consensus.Lineage",
+                                                    "ReprSequence"))] <- 0 
+      }
+    
+    ASVTable
+    
+  })
+  
+  # Show this table in the main panel
+  output$FinalProcessedTable <- renderDataTable({
+    Table <- FilteredTable()
+    output$proc_maintext <- renderText("This is your processed data")
+    Table
   })
   
   
@@ -264,20 +279,12 @@
   # First we update 
   observeEvent(input$MetaFile,{
     req(input$MetaFile)
-    ## Incorporate the meta file column names into every appropriate input
     MetaData <- MainMetaTable()
     MetaColNames <- colnames(MetaData)
-    # meta_colnames <- c(colnames(meta_datafile), "TaxaName")
     MetaColNames <- MetaColNames[MetaColNames != "SampleName"]
-    ## Update the selections - read plot
-    # isolate({
     updateSelectInput(session, "ReadSortByAxis", choices = sort(MetaColNames))
     updateSelectInput(session, "ReadMetaGroup", choices = sort(MetaColNames))
-    # updateSelectInput(session,"read_meta_key",choices = read_meta_list)
     updateSliderInput(session, "ReadPlotOutW")
-    # updateSelectInput(session,"read_colour",choices = colnames(meta_datafile()))
-    # updateSelectInput(session, "read_sortby_axis", choices = sort(MetaColNames))
-    # updateSelectInput(session, "read_meta_group", choices = sort(MetaColNames))
     updateSliderInput(session, "ReadPlotOutH")
     # })
   })
@@ -288,6 +295,16 @@
     req(input$ReadStartButton)
     ASVTable <- FilteredTable()
     MetaData <- MainMetaTable()
+
+    
+    # If analyzing contaminants, match between ASV table and ASV list, and keep only those that match
+    if (input$ContamChoice == "Analyze"){
+      Contams <- MainContamTable()
+      Matches <- intersect(rownames(ASVTable),rownames(Contams))
+      ASVTable <- ASVTable[Matches, ]
+      
+      ASVTable
+    }
     
     # Sum each column and add a total, then select only that row
     ASVTable <- rbind(ASVTable, Total = colSums(ASVTable))
@@ -536,11 +553,21 @@
     BarProp <- left_join(BarProp, FeatureKey, by = "FeatureID")
     rownames(BarProp) <- BarProp$FeatureID
     
+    # If analyzing contaminants, match between ASV table and ASV list, and keep only those that match
+    if (input$ContamChoice == "Analyze"){
+      Contams <- MainContamTable()
+      Matches <- intersect(rownames(BarProp),rownames(Contams))
+      BarProp <- BarProp[Matches, ]
+      BarProp
+  
+    }
+    
     BarProp
   })
   
   # Generate a long form dataframe; keep for output
   BarPlotDataLong <- reactive({
+    
     
     req(input$BarStartButton)
     BarTable <- BarPlotDataTran()
@@ -571,11 +598,32 @@
                            "Order",
                            "Family",
                            "Genus",
-                           "Species"),
+                           "Species",
+                           "Sub1",
+                           "Sub2",
+                           "Sub3",
+                           "Sub4"),
                          sep = ";",
                          remove = TRUE,
                          convert = FALSE
                          )
+    
+    # Replace any NA with unresolved
+    BarTable <- BarTable %>%
+      mutate(across(c(Domain,
+                      Phylum,
+                      Class,
+                      Order,
+                      Family,
+                      Genus,
+                      Species,
+                      Sub1,
+                      Sub2,
+                      Sub3,
+                      Sub4),
+                    ~replace_na(.x, "ZZZ_No_Taxon_Info")))
+    
+    
     
     # Add an identifier so the data can be mapped afterwards
     BarTable$Identifier <- 1:nrow(BarTable)
@@ -585,7 +633,6 @@
   
   # Generate a summarized dataframe for plotting; includes setting filtered taxa as "other"
   BarPlotDataSum <- reactive({
-    
     req(input$BarStartButton)
     BarTable <- BarPlotDataLong()
     MetaData <- MainMetaTable()
@@ -611,13 +658,9 @@
                               -c("FiltSum"))
     BarTableSumFinal <- bind_rows(BarTableSum, IncludedSamples)
     
-    # Add metadata. Because this collapses features, all feature data is lost
+    # Add metadata. Because this collapses features, all additional feature data and full lineages are lost
     BarTableSumFinal <- left_join(BarTableSumFinal, MetaData, by = "SampleName")
-    
-    # Now remove all columns excep SampleName? Why?
-    # BarFilt <- colnames(MetaData)
-    # BarFilt <- BarFilt[BarFilt != "SampleName"]
-    # BarTableSumFinal <- select(BarTableSumFinal, -BarFilt)
+
     
     BarTableSumFinal
   })
@@ -807,7 +850,6 @@
   
   # We must regenerate the proportion tables and associated data
   BubbleDataTran <- reactive({
-    
     req(input$BubbleStartButton)
     BubbleTable <- FilteredTable()
     FeatureKey <- FeatureDataKey()
@@ -823,7 +865,18 @@
     # Reinsert FeatureKey information
     BubblePropFilt$FeatureID <- rownames(BubblePropFilt)
     BubblePropFilt <- left_join(BubblePropFilt, FeatureKey, by = "FeatureID")
+    rownames(BubblePropFilt) <- BubblePropFilt$FeatureID
     
+    # If analyzing contaminants, match between ASV table and ASV list, and keep only those that match
+    if (input$ContamChoice == "Analyze"){
+      Contams <- MainContamTable()
+      Matches <- intersect(rownames(BubblePropFilt),rownames(Contams))
+      BubblePropFilt <- BubblePropFilt[Matches, ]
+      
+      BubblePropFilt
+      
+    }
+
     BubblePropFilt
   })
   
@@ -966,20 +1019,20 @@
       warning("Metadata filtering selected.")
     }
     
-    # # Set the taxonomy as factors for later ordering. This doesn't do much, but if you remove it the colouring settings change
-    # data_long_bubble <-
-    #   data_long_bubble[with(data_long_bubble,
-    #                         order(eval(parse(
-    #                           text = isolate(input$BubbleTaxSort)
-    #                         )), TaxaName, decreasing = TRUE)), ]
-    # data_long_bubble$TaxaName <-
-    #   as.character(data_long_bubble$TaxaName)
-    # data_long_bubble$TaxaName <-
-    #   factor(data_long_bubble$TaxaName,
-    #          levels = unique(data_long_bubble$TaxaName))
-    # data_long_bubble
+    
+    # Set taxonomy as factors so that the plot colours correctly, otherwise it isn't a gradient and repeats
+    BubbleTable <-
+      BubbleTable[with(BubbleTable,
+                       order(eval(parse(
+                              text = isolate(input$BubbleTaxSort)
+                            )), Taxon, decreasing = TRUE)), ]
+    BubbleTable$Taxon <- as.character(BubbleTable$Taxon)
+    BubbleTable$Taxon <- factor(BubbleTable$Taxon,
+                                levels = unique(BubbleTable$Taxon))
+    BubbleTable
     
     BubbleTable
+    
   })
   
   # Now create the bubbleplot visual
@@ -989,6 +1042,7 @@
     BubbleTable <- BubbleDataLong()
     FeatureKey <- FeatureDataKey()
     MetaData <- MainMetaTable()
+    FilteredTable <- FilteredTable()
     
     # The primary bubble plot
     BubblePlot <- ggplot(BubbleTable,
@@ -1151,7 +1205,7 @@
     
     # Add the bubbles and percentage labels to the plot:
     
-    if (isolate(input$BubbleInclPercent) == "Yes") {
+    if (input$BubbleInclPercent == "Yes") {
       BubblePlot <- BubblePlot +
         geom_point(shape = 21,
                    alpha = 0.8) +
@@ -1169,19 +1223,21 @@
           "% relative abundance"
           )
         )
-      } else {
+      } else if (input$BubbleInclPercent == "No") {
         BubblePlot <- BubblePlot +
-        geom_point(shape = 21,
-                   alpha = 0.8) +
-        ggtitle("")
-        + xlab("") +
-        scale_size_area(max_size = 15) +
-        ylab(paste0(
-          "Proportion of affiliated taxa at >",
-          isolate(input$BubbleAbundThresh),
-          "% relative abundance"
-        )
-        )
+          geom_point(shape = 21,
+                     alpha = 0.8) +
+          theme(plot.title = element_text(hjust = 0.5)) +
+          scale_size_area(max_size = 15) +
+          ggtitle("") + 
+          xlab("") +
+          scale_size_area(max_size = 15) +
+          ylab(paste0(
+            "Proportion of affiliated taxa at >",
+            isolate(input$BubbleAbundThresh),
+            "% relative abundance"
+          )
+          )
       }
     
     ## Modify the general theme, including panel borders
@@ -1203,7 +1259,7 @@
             vjust = 0.5,
             hjust = 1
           ),
-          plot.margin=unit(c(-0.30,0,0,0), "null")
+          # plot.margin=unit(c(-0.30,0,0,0), "null")
           
           #legend.position = "none")
         )
@@ -1227,32 +1283,1208 @@
             vjust = 0.5,
             hjust = 1
           ),
-          plot.margin=unit(c(-0.30,0,0,0), "null")
+          # plot.margin=unit(c(-0.30,0,0,0), "null")
           #legend.position = "none")
         )
     }
-  
     BubblePlot
+    
+    if(input$BubbleInclRead == TRUE && input$BubbleInclTaxa){
+      BubbleReadPlot <- BubbleReadVisual()
+      BubbleTaxaPlot <- BubbleTaxonVisual()
+      layout <- "AA##
+                 BBCC"
+      BubblePlot <- BubbleReadPlot / BubblePlot + BubbleTaxaPlot + 
+        plot_layout(design = layout, heights = c(0.25,1,0.10), widths = c(0.25,1,0.01))
+      BubblePlot
+    }
+    
+    else if (input$BubbleInclRead == TRUE){
+      BubbleReadPlot <- BubbleReadVisual()
+      BubblePlot <- BubbleReadPlot + BubblePlot +
+        plot_layout(ncol = 1, heights = c(0.1,1))
+      BubblePlot
+    }
+    
+    else if (input$BubbleInclTaxa == TRUE){
+      BubbleTaxaPlot <- BubbleTaxonVisual()
+      layout <- "AAC"
+      BubblePlot <- BubblePlot + BubbleTaxaPlot +
+        plot_layout(design = layout, nrow = 1, heights = c(0.10,1))
+      BubblePlot
+    }
+    else {
+      BubblePlot <- BubblePlot
+    }
     
   })
   
-  
-  
-  
-  
+  # Settings for rendering the bubble plot output
   BubblePlotHeight <- reactive(input$BubblePlotOutH)
   BubblePlotWidth <- reactive(input$BubblePlotOutW)
   
   output$BubblePlotOut <- renderPlot({
-    BubblePlot <- BubbleDataTran()
-    Test <- BubbleDataLong()
+    BubbleReadPlot <- BubbleReadVisual()
+    BubbleTaxaPlot <- BubbleTaxonVisual()
     BubblePlot <- BubblePlotVisual()
     BubblePlot
-  },
+    },
   width = BubblePlotWidth,
   height = BubblePlotHeight)
   
+  # Bubble plot download
+  output$BubblePlotDownload <- downloadHandler(
+    filename = "bubble_plot.pdf",
+    contentType = ".pdf",
+    content = function(Bubble) {
+      ggsave(
+        Bubble,
+        plot = BubblePlotVisual(),
+        device = "pdf",
+        height = as.numeric(input$BubblePlotOutH),
+        width = as.numeric(input$BubblePlotOutW),
+        units = "px",
+        scale = 4
+      )
+    }
+  )
+  
+  # Bubble plot table download
+  output$BubbleTableDownload <- downloadHandler(
+    filename = "bubble_data_table.csv",
+    content = function(BubbleTable) {
+      write.csv(BubbleDataLong(), BubbleTable)
+    }
+  ) # End of bubble plot
+  
+# ---- Bubble Plot Read Plot ----
+  # An optional addition to the bubble plot that adds read counts above each samples. Read counts remain constant regardless
+  # of changes to added/removed taxa through filtering, and are only removed when their respecitve samples are filtered.
+  
+  BubbleReadVisual <- reactive({
+    
+    req(input$BubbleStartButton)
+    ASVTable <- FilteredTable()
+    MetaData <- MainMetaTable()
+    BubbleTable <- BubbleDataLong()
+    
+    # Tally reads and add metadata
+    FeatureCounts <- rbind(ASVTable, Total = colSums(ASVTable))
+    FeatureCounts <- FeatureCounts["Total", ]
+    FeatureCounts <- reshape2::melt(FeatureCounts,
+                                    variable.name = as.character("SampleName"),
+                                    value.name = "Total"
+    )
+    FeatureCounts <- left_join(FeatureCounts, MetaData, by = "SampleName")
+    
+    # Now we need to ratify any missing samples in the bubble plot by filtering the read plot based on bubble plot sample names
+    UniqueSamples <- unique(BubbleTable$SampleName)
+    FilteredFeatureCounts <- FeatureCounts %>%
+      filter(SampleName %in% UniqueSamples)
+    
+    Plot <- ggplot(FilteredFeatureCounts,
+                   aes(x = reorder(SampleName,
+                                   isolate(!!sym(input$BubbleSortXAxis))),
+                       y = Total,
+                       width = 0.9
+                   )
+    )
+    
+    Plot <- Plot + geom_bar(aes(fill = "grey"),
+                            colour = "black",
+                            size = 0.5,
+                            alpha = 0.8,
+                            stat = "identity",
+                            position = "stack"
+                            )
+    
+    Plot <- Plot + scale_fill_manual(values = "grey")
+    Plot <- Plot + ylab("Reads")
+    
+    Plot <- Plot + theme_bw() +
+      theme(
+        panel.grid = element_blank(),
+        text = element_text(colour = "black"),
+        #axis.line = element_line(colour = "black"),
+        axis.line = element_blank(),
+        axis.text = element_text(colour = "black", size = 12),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.text = element_text(face = "italic", size = 12),
+        legend.title = element_text(size = 10),
+        panel.spacing = unit(as.numeric(input$BubblePanelSpacing), "points"),
+        legend.position = "none",
+        axis.title.x = element_blank(),
+        strip.background = element_rect(fill = "white", color = "black"),
+        axis.title = element_text(size = 10, face = NULL),
+        axis.text.y = element_text(size = 10),
+        strip.text.x = element_blank(),
+        # plot.margin=unit(c(-0.30,0,0,0), "null")
+      )
+    
+    if (isolate(input$BubbleSecondFacet) == TRUE){
+      Plot <- Plot + facet_nested(~ eval(parse(text = isolate(input$BubbleFacet))) + 
+                                    eval(parse(text = isolate(input$BubbleSecondFacetMeta))),
+                                  space = "free",
+                                  scales = "free",
+                                  switch = "both"
+      )
+      }
+    
+    # Default faceting - single level
+    if (isolate(input$BubbleSecondFacet) == FALSE){
+      Plot <- Plot + facet_nested(~ eval(parse(text = isolate(input$BubbleFacet))),
+                     space = "free",
+                     scales = "free",
+                     switch = "both"
+      )
+      }
+    
+    if (isolate(input$BubbleThirdFacet) == TRUE){
+      Plot <- Plot + facet_nested( ~ eval(parse(text = isolate(input$BubbleFacet))) * eval(parse(text = isolate(input$BubbleSecondFacetMeta))) * eval(parse(text = isolate(input$BubbleThirdFacetMeta))),
+                    space = "free",
+                    scales = "free",
+                    switch = "both"
+        )
+    }
+    
+    Plot
+    
+  })
+  
+# ---- Bubble Taxon Proportion Plot ----
+  # An option plot that calculates the proportion of taxa among all samples in the dataset. Pretty niche use case
+  BubbleTaxonVisual <- reactive({
+    
+    req(input$BubbleStartButton)
+    
+    FilteredTable <- FilteredTable()
+    MetaData <- MainMetaTable()
+    FeatureKey <- FeatureDataKey()
+    BubbleTable <- BubbleDataLong()
+    
+    # Count total number of reads
+    TotalReads <- sum(FilteredTable)
+    
+    # Generate total counts for each taxon among the entire dataset
+    FeatureSums <- data.frame(Sums = rowSums(FilteredTable))
+    FeatureSums$FeatureID <- rownames(FeatureSums)
+    
+    # Join the taxon labels
+    FeatureSums <- left_join(FeatureSums, FeatureKey, by = "FeatureID")
+    
+    
+    # Calculate a proportion
+    FeatureSums$Proportion <- FeatureSums$Sums / TotalReads * 100
+    
+    # Now remove any taxa not present in the main bubble plot
+    UniqeTaxa <- unique(BubbleTable$Taxon)
+    FilteredFeatureSums <- FeatureSums %>% filter(Taxon %in% UniqeTaxa)
+    
+    # Separate the full lineage into individual taxonomic levels
+    FilteredFeatureSums <- separate(FilteredFeatureSums,
+                                    Labels,
+                                    c("Domain",
+                                      "Phylum",
+                                      "Class",
+                                      "Order",
+                                      "Family",
+                                      "Genus",
+                                      "Species",
+                                      "Sub1",
+                                      "Sub2",
+                                      "Sub3",
+                                      "Sub4"),
+                                    sep = ";",
+                                    remove = TRUE,
+                                    convert = FALSE
+    )
+    
+    # Now plot the visualization
+    Plot <- ggplot(data = FilteredFeatureSums,
+                   aes(x = reorder(Taxon, desc(Taxon)),
+                       y = Proportion))
+    
+    Plot <- Plot + geom_bar(aes(),
+                            position = position_dodge2(),
+                            stat = "identity",
+                            colour = "black",
+                            size = 0.6,
+                            alpha = 0.7,
+                            width = 0.9
+    )
+    
+    Plot <- Plot + scale_fill_manual(values = "grey")
+    
+    Plot <- Plot + facet_nested(get(input$BubbleTaxSort)~., scales = "free", space = "free")
+    
+    Plot <- Plot + coord_flip()
+    
 
+    
+    Plot <- Plot + theme_bw() + theme(
+      panel.grid = element_blank(),
+      text = element_text(colour = "black"),
+      panel.background = element_blank(),
+      axis.line = element_line(colour = "black",size=0),
+      axis.line.x.bottom = element_line(size=-0),
+      axis.text = element_text(colour = "black",size=12),
+      axis.text.x = element_text(angle = 60, hjust =1.4, vjust=1.2,size=12,face = "plain"),
+      legend.text = element_text(face = "plain",size = 16),
+      legend.title = element_text(size=16),
+      legend.position = "none",
+      axis.title.y = element_blank(),
+      axis.text.y = element_blank(),
+      strip.text.x = element_text(size=10,face="bold"),
+      strip.background = element_rect(fill = "white", color = "black"),
+      panel.spacing = unit(as.numeric(input$BubblePanelSpacing), "points"),
+      panel.border = element_rect(colour="black",size=0,fill=NA),
+      axis.ticks = element_line(colour = "black"),
+      axis.ticks.y = element_blank(),
+      #panel.grid.major.y = element_line(colour = "black"),
+      axis.line.y = element_line(colour="black"),
+      strip.text.y = element_blank(),
+      plot.margin=unit(c(0,0,0,0), "null")
+    )
+    
+    Plot
+    
+  })
+  
+  
+# ---- Bray-Curtis Triplot Visualization ----
+  
+  # Populate the drop down menus and update inputs
+  observeEvent(input$MetaFile, {
+    req(input$MetaFile)
+    MetaData <- MainMetaTable()
+    MetaColNames <- c(colnames(MetaData), "Taxon")
+    MetaColNames <- MetaColNames[MetaColNames != "SampleName"]
+    updateSelectInput(session, "PFillCol", choices = sort(MetaColNames))
+    updateSelectInput(session, "PElipCol", choices = sort(MetaColNames))
+    updateSelectInput(session, "PShape", choices = sort(MetaColNames))
+    updateSelectInput(session, "PPalletSelect")
+    updateSelectInput(session, "PGradient")
+  })
+  
+  # Create an SRS table
+  PSrsTable <- reactive({
+    
+    req(input$PStartButton)
+    
+    SrsTable <- FilteredTable()
+    FeatureKey <- FeatureDataKey()
+    SrsDepth <- isolate(input$SrsDepth)
 
+    SrsTable <- SRS(SrsTable, Cmin = SrsDepth, seed = 123)
+    rownames(SrsTable) <- FeatureKey$FeatureID
+    
+    SrsTable
+  })
+  
+  # Generate a proportion table
+  PPropTable <- reactive({
+    
+    req(input$PStartButton)
+    
+    SrsTable <- PSrsTable()
+    MetaData <- MainMetaTable()
+    
+    # Create a proportion table
+    SrsPropTable <- prop.table(as.matrix(SrsTable),2) * 100
+    SrsPropTable <- as.data.frame(SrsPropTable)
+    
+    # Remove zeros
+    # SrsTable <- SrsTable[, colSums(is.na(SrsTable)) == 0]
+    
+    # If analyzing contaminants, match between ASV table and ASV list, and keep only those that match
+    if (input$ContamChoice == "Analyze"){
+      Contams <- MainContamTable()
+      Matches <- intersect(rownames(SrsPropTable),rownames(Contams))
+      SrsPropTable <- SrsPropTable[Matches, ]
+      
+      SrsPropTable
+      
+    }
+    SrsPropTable
+  })
+  
+  #Generate the PCoA table
+  PPcoa <- reactive({
+    
+    req(input$PStartButton)
+    PPropTable <- PPropTable()
+    
+    TPropTable <- t(PPropTable)
+    BrayCurtis <- as.matrix(vegdist(TPropTable, method = "bray"))
+    
+    # Perform the PCoA
+    PPcoa <- pcoa(as.dist(BrayCurtis))
+    PPcoa
+  })
+  
+  # Isolate the axis1 and axis2 coordinates
+  PCoords <- reactive({
+    
+    req(input$PStartButton)
+    PPcoa <- PPcoa()
+    
+    PCoords <- data.frame(PCoA1 = PPcoa$vectors[, 1],
+                              PCoA2 = PPcoa$vectors[, 2],
+                              row.names = rownames(PPcoa$vectors)
+                              )
+    PCoords
+  })
+  
+  #Isolate the relative corrected eigen values
+  PEigenValues <- reactive({
+    
+    req(input$PStartButton)
+    PPcoa <- PPcoa()
+    
+    # Extract relative eigenvalues
+    EigenValues <- PPcoa$values[3]
+    
+    # Extract the first two columns (axis 1 and axis 2)
+    PEigenValues <- data.frame(Axis1 = EigenValues[1,] * 100, Axis2 = EigenValues[2,] * 100)
+    PEigenValues
+  })
+  
+  # Filter the metadata for missing samples after SRS rarefaction
+  PMetaFilt <- reactive({
+    
+    req(input$PStartButton)
+    Pcoa <- PPcoa()
+    MetaData <- MainMetaTable()
+    SrsTable <- PSrsTable()
+    
+    # Collect the column names after SRS rarefaction
+    PColNames <- colnames(SrsTable)
+    
+    # Filter the metadata table
+    MetaData <-
+      MetaData %>% filter(SampleName %in% PColNames)
+    MetaData
+    MetaData
+  })
+  
+  # Fit the environment variables to the PCoA coordinates
+  PEnvFit <- reactive({
+    
+    req(input$PStartButton)
+    Pcoa <- PPcoa()
+    MetaData <- PMetaFilt()
+    SrsTable <- PSrsTable()
+    
+    # convert to a dataframe
+    PVectors <- as.data.frame(Pcoa$vectors)
+    PEnvFit <- envfit(PVectors, MetaData, perm = 10000)
+    
+    ## Scales the arrow vectors so they aren't huge
+    PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * sqrt(PEnvFit$vectors$r))
+    PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$r)
+    PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$pvals)
+    colnames(PEnvFitFinal) <- c("Axis1", "Axis2","R2", "pvalue")
+    PEnvFitFinal$R2_rounded <- round(PEnvFitFinal$R2, 5)
+    PEnvFitFinal$pvalue <- round(PEnvFitFinal$pvalue, 5)
+    PEnvFitFinal
+  })
+  
+  # Filter the data below a given R or p-value threshold
+  PEnvFitFilt <- reactive({
+    
+    req(input$PStartButton)
+    PEnvFit <- PEnvFit()
+    
+    # Filter
+    PEnvFitFilt <- filter(PEnvFit,
+                          PEnvFit$pvalue < (input$PEnvPThresh) &
+                            PEnvFit$R2 > (input$PEnvRThresh))
+    PEnvFitFilt
+  })
+  
+  #Fit taxonomy abundances to PCoA data
+  PTaxonScores <- reactive({
+    
+    req(input$PStartButton)
+    MetaData <- PMetaFilt()
+    FeatureKey <- FeatureDataKey()
+    SrsProp <- PPropTable()
+    Pcoa <- PPcoa()
+  
+    # Transpose
+    TSrsProp <- t(SrsProp)
+    
+    # Use the wascores function to calculate weighted average scores 
+    TaxonWeightedScores <- wascores(Pcoa$vectors[, 1:3], TSrsProp)
 
+    
+    # Remove NA values
+    TaxonWeightedScores[is.na(TaxonWeightedScores)] <- 0
+    
+    # Calculate normalized scores, based on total abundance of each taxon
+    NormWeightedScores <- data.frame(Abundance = (apply(TSrsProp, 2, sum)) / sum(TSrsProp))
+    
+    # Combine weighted scores with normalized abundance
+    TaxonWeightedScores <- cbind(TaxonWeightedScores, NormWeightedScores$Abundance)
+    colnames(TaxonWeightedScores) <- c("Axis1","Axis2","Axis3","Abundance")
+    TaxonWeightedScores <- as.data.frame(TaxonWeightedScores)
+    
+    # Filter based on user-defined taxonomy relative abundance thresholds
+    TaxonWeightedScores <- filter(TaxonWeightedScores,
+                                  TaxonWeightedScores$Abundance > input$PTaxaThresh / 100
+    )
+    
+    # Set a FeatureID column, then append taxonomic information using the FeatureKey
+    TaxonWeightedScores$FeatureID <- rownames(TaxonWeightedScores)
+    TaxonWeightedScores <- left_join(TaxonWeightedScores, FeatureKey, by = "FeatureID")
+    
+    TaxonWeightedScores
+    
+  })
+  
+  # Generate the PCoA plot
+  PPlotVisual <- reactive({
+    req(input$PStartButton)
+    Pcoa <- PCoords()
+    MetaData <- PMetaFilt()
+    PEnvFitFilt <- PEnvFitFilt()
+    Eigen <- PEigenValues()
+    TaxonScores <- PTaxonScores()
+    
+    # Insert a SampleName column then merge the metadata
+    Pcoa$SampleName <- rownames(Pcoa)
+    Pcoa <- left_join(Pcoa, MetaData, by = "SampleName")
+    
+    # Change to categorical data 
+    Pcoa <- Pcoa %>% mutate_if(!names(.) %in% c("PCoA1", "PCoA2"), factor)
+    
+    # merged_df <-
+    #     merged_df %>% mutate_if(!names(.) %in% c("PCoA1", "PCoA2"), factor)
+      
+      # Define the available shapes and colors
+      # I need to add the option to include a gradient
+      AvailShapes <- c(21, 22, 23, 24, 25, 14, 13:1)
+      AvailColours <- 2:27
+      AvailFill <- 2:27
+      
+      
+      
+      #If the user selects shape options
+      if ((input$PShapeChoice) == TRUE){
+        PPlot <- ggplot(Pcoa, aes(x = PCoA1, y = PCoA2)) +
+          geom_point(size = input$PSizeSelect, aes(
+            shape = get(isolate(input$PShape)),
+            colour = get(input$PFillCol),
+            fill = get(input$PFillCol))) + 
+          
+          labs(x = paste0(
+            c("Axis1","(",round(Eigen$Axis1,1),"%)")),
+            y = paste0(
+            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+            fill = input$PFillCol,
+            colour = input$PFillCol,
+            shape = input$PShape
+          ) +
+          scale_shape_manual(values = AvailShapes)
+        
+        # Uses a colour gradient if selected
+
+        if (input$PGradient == TRUE){
+          PPlot <- PPlot + scale_colour_viridis(option = input$PPalletSelect,discrete = TRUE, direction = -1)
+          PPlot <- PPlot + scale_fill_viridis(option = input$PPalletSelect,discrete = TRUE, direction = -1)
+        } else {
+          PPlot <- PPlot + scale_fill_manual(values = AvailFill) +
+            scale_colour_manual(values = AvailFill)
+        }
+      }
+      
+      #If the user does not select shapes
+      if ((input$PShapeChoice) == FALSE){
+        
+        PPlot <- ggplot(data = Pcoa, aes(x = PCoA1, y = PCoA2)) +
+          geom_point(size = input$PSizeSelect, aes(
+            colour = !!sym(input$PFillCol),
+            fill = !!sym(input$PFillCol)
+          )) + 
+        labs(x = paste0(
+          c("Axis1","(",round(Eigen$Axis1,1),"%)")),
+          y = paste0(
+            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+          fill = input$PFillCol,
+          colour = input$PFillCol,
+          shape = input$PShape
+        )
+        
+        ## If colou r gradient is selected
+        if (input$PGradient == TRUE){
+          PPlot <- PPlot + scale_colour_viridis(option = input$PPalletSelect,discrete = TRUE, direction = -1)
+          PPlot <- PPlot + scale_fill_viridis(option = input$PPalletSelect,discrete = TRUE, direction = -1)
+        } else {
+          PPlot <- PPlot + scale_fill_manual(values = AvailFill) +
+            scale_colour_manual(values = AvailFill)
+        }
+      }
+      
+      #Add coordinates and line segments for the environmental data, but only if it is present 
+      if (dim(PEnvFitFilt)[1] != 0) {
+        PPlot <- PPlot + geom_segment(
+          data = PEnvFitFilt,
+          aes(
+            x = 0,
+            y = 0,
+            xend = PEnvFitFilt$Axis1,
+            yend = PEnvFitFilt$Axis2,
+          ),
+          show.legend = FALSE,
+          arrow = arrow(ends = "last")
+        ) +
+          geom_label(
+            data = PEnvFitFilt,
+            aes(
+              label = rownames(PEnvFitFilt),
+              x = PEnvFitFilt$Axis1 / 2,
+              y = PEnvFitFilt$Axis2 / 2
+            ),
+            size = 4
+          )}
+      
+      #If sample labels are selected:
+      if (input$PSampleLabel == TRUE){
+        PPlot <- PPlot +
+          geom_text(aes(label = SampleName))
+      }
+      
+      
+      #Add elipses to the data
+      if ((input$PElips) == TRUE) {
+        
+        PPlot <-PPlot + stat_ellipse(aes(color = get(input$PFillCol)),
+                                   show.legend = FALSE)
+      }
+      
+      # Add taxon abundance data, but only if it is present
+      if (dim(TaxonScores)[1] != 0) {
+        PPlot = PPlot + geom_point(data = TaxonScores,
+                                   aes(Axis1, Axis2, size = round(Abundance * 100, digits = 0)),
+                                   inherit.aes = FALSE,
+                                   shape = 21,
+                                   fill = NA,
+                                   colour = "black",
+                                   show.legend = TRUE
+        ) +
+          labs(size = "Relative abundance")+
+          scale_size_area(max_size = 15)
+      }
+      
+      if (dim(TaxonScores)[1] != 0) {
+        # Add taxon annotation
+        PPlot <- PPlot + geom_text(
+          data = TaxonScores,
+          aes(Axis1, Axis2, label = Taxon),
+          inherit.aes = FALSE,
+          size = 4
+        )
+      }
+      
+      # Customize plot aesthetics
+      PPlot <- PPlot +
+        theme(
+          panel.grid = element_blank(),
+          text = element_text(colour = "black"),
+          panel.background = element_blank(),
+          axis.line = element_line(colour = "black"),
+          axis.text = element_text(colour = "black", size = 12),
+          axis.text.x = element_text(
+            angle = 90,
+            hjust = 1,
+            vjust = 0.5,
+            size = 14,
+            face = "plain"
+          ),
+          axis.text.y.left = element_text(size = 14, face = "plain"),
+          legend.text = element_text(face = "italic", size = 16),
+          legend.title = element_text(size = 16),
+          axis.title = element_text(size = 16, face = NULL),
+          axis.text.y = element_text(size = 14),
+          strip.text.x = element_text(size = 10, face = "bold"),
+          panel.spacing = unit(0, "lines"),
+          panel.border = element_rect(
+            colour = "black",
+            size = 1,
+            fill = NA
+          ),
+          axis.ticks = element_line(colour = "black"),
+          axis.ticks.y = element_line(colour = "black"),
+          axis.line.y = element_line(colour = "black")
+        ) +
+        guides(fill = guide_legend(override.aes = list(shape = 22)))
+      
+      # Plot PCoA
+      PPlot
+    
+  })
+  
+  
+  # Downloads the stats table
+  output$PEnvFitTableSave <- downloadHandler(
+    filename = "BrayCurtisStats.csv",
+    content = function(Table) {
+      write.csv(PEnvFit(), Table)
+    })
+  
+  output$PPlotSave <- downloadHandler(
+    filename = "BrayCurtisTriplot.pdf",
+    contentType = ".pdf",
+    content = function(Pcoa) {
+      ggsave(
+        Pcoa,
+        plot = PPlotVisual(),
+        device = "pdf",
+        height = as.numeric(input$PPlotOutH),
+        width = as.numeric(input$PPlotOutW),
+        units = "px",
+        scale = 4
+      )
+    })
+  
+  # Render the stats table
+  output$PTableOut <- renderTable({
+    Table <- PEnvFit()
+    Table
+  })
+  
+  # Render the PCoA plot
+  PPlotHeight <- reactive(input$PPlotOutH)
+  PPlotWidth <- reactive(input$PPlotOutW)
+  
+  output$PPlotOut <- renderPlot({
+    PPlot <- PPlotVisual()
+    PPlot
+  },
+  width = PPlotWidth,
+  height = PPlotHeight)
+  
+  
+# ---- UniFrac Plot ----
+  # Herein lies the code of the fabled UniFrac triplot. Some of the code may seem redundant, but it isn't. I've written it so that
+  # it collects all the necessary data with one pass through the UniFrac function, because it is time consuming so I don't want
+  # to repeat it for minor changes
+  
+  ## Update selection - UniFrac PCoA plot
+  observe({
+    req(input$MetaFile)
+    
+    MetaData <- MainMetaTable()
+    MetaColNames <- c(colnames(MetaData), "Taxon")
+    MetaColNames <- MetaColNames[MetaColNames != "SampleName"]
+    
+    updateSelectInput(session, "UniFilCol", choices = sort(MetaColNames))
+    updateSelectInput(session, "UniShape", choices = sort(MetaColNames))
+    updateSelectInput(session, "UniPalletSelect")
+    updateSelectInput(session, "UniGradient")
+  })
+  
+  # Import the tree
+  MainUniTree <- reactive({
+    
+    req(input$UniStartButton)
+    req(input$UniTree)
+    # req(input$main_file)
+    # req(input$meta_file)
+    read.tree(
+      file = input$UniTree$datapath
+    )
+  })
+  
+  # SRS the table
+  UniSrsTable <- reactive({
+    
+    req(input$UniStartButton)
+    req(input$UniTree)
+    
+    ASVTable <- FilteredTable()
+    MetaData <- MainMetaTable()
+    FeatureKey <- FeatureDataKey()
+
+    SrsTable <- SRS(ASVTable, Cmin = isolate(input$UniDepth), seed = 123)
+    rownames(SrsTable) <- FeatureKey$FeatureID
+    SrsTable
+  })
+  
+  # Create a proportion table
+  UniPropTable <- reactive({
+    req(input$UniStartButton)
+    
+    SrsTable <- UniSrsTable()
+    
+    SrsPropTable <- prop.table(as.matrix(SrsTable),2) * 100
+    SrsPropTable <- as.data.frame(SrsPropTable)
+    
+    # If analyzing contaminants, match between ASV table and ASV list, and keep only those that match
+    if (input$ContamChoice == "Analyze"){
+      Contams <- MainContamTable()
+      Matches <- intersect(rownames(SrsPropTable),rownames(Contams))
+      SrsPropTable <- SrsPropTable[Matches, ]
+      
+      SrsPropTable
+      
+    }
+    
+    SrsPropTable
+    
+  })
+  
+  #Filter the metadata table
+  UniMetaFilt <- reactive({
+    
+    req(input$UniStartButton)
+    
+    SrsTable <- UniSrsTable()
+    MetaData <- MainMetaTable()
+    
+    # Collect the column names after SRS rarefaction
+    FilColNames <- colnames(SrsTable)
+    
+    # # Filter the metadata table to remove samples no longer present after SRS
+    MetaData <- MetaData %>% filter(SampleName %in% FilColNames)
+    MetaData
+  })
+  
+  #Generate the UniFrac distances; must use a transposed proportion table
+  UniDiss <- reactive({
+    
+    req(input$UniStartButton)
+    PropTable <- UniPropTable()
+    UniTree <- MainUniTree()
+    
+    PropTable <- t(PropTable)
+    
+    UniDiss <- GUniFrac(PropTable, UniTree, alpha = c(0,0.5,1))$unifracs
+    UniDiss
+  })
+  
+  #Separate the weighted UniFrac; d_1 is weighted
+  UniDissWeighted <- reactive({
+    req(input$UniStartButton)
+    UniDiss <- UniDiss()
+    UniDiss <- UniDiss[, , "d_1"]
+    UniDiss
+  })
+  
+  #Separate the unweighted UniFrac; d_UW unweighted
+  UniDissUnweighted <- reactive({
+    req(input$UniStartButton)
+    UniDiss <- UniDiss()
+    UniDiss <- UniDiss[, , "d_UW"]
+    UniDiss
+  })
+  
+  #Generate the PcoA for the weighted UniFrac
+  UniWeightedPcoa <- reactive({
+    req(input$UniStartButton)
+    UniDiss <- UniDissWeighted()
+    
+    Pcoa <- ape::pcoa(UniDiss, correction = "cailliez")
+    Pcoa
+  })
+  
+  #Generate the PcoA for the unweighted UniFrac
+  UniUnweightedPcoa <- reactive({
+    req(input$UniStartButton)
+    UniDiss <- UniDissUnweighted()
+    
+    Pcoa <- ape::pcoa(UniDiss, correction = "cailliez")
+    Pcoa
+  })
+  
+  # Capture the first and second axis coordinates for the weighted UniFrac
+  UniWeightedCoords <- reactive({
+    
+    req(input$UniStartButton)
+    Pcoa <- UniWeightedPcoa()
+    
+    Coords <- data.frame(Axis1 = Pcoa$vectors[, 1],
+                         Axis2 = Pcoa$vectors[, 2],
+                         row.names = row.names(Pcoa$vectors))
+    Coords
+  })
+  
+  # Capture the first and second axis coordinates for the weighted UniFrac
+  UniUnweightedCoords <- reactive({
+    
+    req(input$UniStartButton)
+    Pcoa <- UniUnweightedPcoa()
+    
+    Coords <- data.frame(Axis1 = Pcoa$vectors[, 1],
+                         Axis2 = Pcoa$vectors[, 2],
+                         row.names = row.names(Pcoa$vectors))
+    Coords
+  })
+  
+  # Capture the Eigen values
+  UniWeightedEigen <- reactive({
+    
+    req(input$UniStartButton)
+    Pcoa <- UniWeightedPcoa()
+    
+    EigenValues <- Pcoa$values[3]
+    
+    EigenValues <- data.frame(Axis1 = EigenValues[1,] * 100,
+                              Axis2 = EigenValues[2,] * 100)
+    EigenValues
+  })
+  
+  # Capture the Eigen values
+  UniUnweightedEigen <- reactive({
+    
+    req(input$UniStartButton)
+    Pcoa <- UniUnweightedPcoa()
+    
+    EigenValues <- Pcoa$values[3]
+    
+    EigenValues <- data.frame(Axis1 = EigenValues[1,] * 100,
+                              Axis2 = EigenValues[2,] * 100)
+    EigenValues
+  })
+  
+  #Fit the environmental variables to the PCoA for the unweighted UniFrac. 
+  UniEnvFit <- reactive({
+    
+    req(input$UniStartButton)
+    MetaData <- UniMetaFilt()
+    
+    # meta_data_table <- meta_datafile()
+    if (input$UniDissSelect == "unweighted"){
+      Pcoa <- UniUnweightedPcoa()
+      PcoaVectors <- as.data.frame(Pcoa$vectors)
+      EnvFit <- envfit(PcoaVectors, MetaData, perm = 10000)
+      ## Scales the arrow vectors so they aren't huge
+      EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * sqrt(EnvFit$vectors$r))
+      EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$r)
+      EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$pvals)
+      colnames(EnvFitDf) <- c("Axis1", "Axis2", "R2", "pvalue")
+      EnvFitDf$R2Rounded <- round(EnvFitDf$R2, 2)
+      EnvFitDf$pvalue <- round(EnvFitDf$pvalue, 4)
+      # pcoa_envfit_df$pvaluecorr <- pcoa_envfit_df$pvalue*100
+      # colnames(pcoa_envfit_df) <- c("axis1", "axis2", "R", "pvalue","pcorrected")
+      EnvFitDf
+    }
+    #Fit the environmental variables to the PCoA for the weighted UniFrac
+    else if (input$UniDissSelect == "weighted"){
+      Pcoa <- UniWeightedPcoa()
+      PcoaVectors <- as.data.frame(Pcoa$vectors)
+      EnvFit <- envfit(PcoaVectors, MetaData, perm = 10000)
+      ## Scales the arrow vectors so they aren't huge
+      EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * sqrt(EnvFit$vectors$r))
+      EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$r)
+      EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$pvals)
+      colnames(EnvFitDf) <- c("Axis1", "Axis2", "R2", "pvalue")
+      EnvFitDf$R2Rounded <- round(EnvFitDf$R2, 2)
+      EnvFitDf$pvalue <- round(EnvFitDf$pvalue, 4)
+      # pcoa_envfit_df$pvaluecorr <- pcoa_envfit_df$pvalue*100
+      # colnames(pcoa_envfit_df) <- c("axis1", "axis2", "R", "pvalue","pcorrected")
+      EnvFitDf
+    }
+  })
+  
+  #Filter the environmental statistics based on R or p-values.
+  UniEnvFitFilt <- reactive({
+    
+    req(input$UniStartButton)
+    EnvFit <- UniEnvFit()
+    
+    EnvFitFilt <- filter(EnvFit,
+                         EnvFit$pvalue < input$UniEnvPThresh &
+                           EnvFit$R2 > input$UniEnvRThresh)
+    EnvFitFilt
+  })
+  
+  
+  
+  #Fit taxonomy abundances to PCoA data
+  UniTaxonScores <- reactive({
+    
+    req(input$UniStartButton)
+    MetaData <- UniMetaFilt()
+    FeatureKey <- FeatureDataKey()
+    PropTable <- UniPropTable()
+    
+    if (input$UniDissSelect == "unweighted"){
+      Pcoa <- UniUnweightedPcoa()
+      Coords <- UniUnweightedCoords()
+      Pcoa
+    } 
+    
+    else if (input$UniDissSelect == "weighted"){
+      Pcoa <- UniWeightedPcoa()
+      Coords <- UniWeightedCoords()
+      Pcoa
+    }
+    
+    TPropTable <- t(PropTable)
+    
+    # Use the wascores function to calculate weighted average scores 
+    TaxonWeightedScores <- wascores(Pcoa$vectors[, 1:3], TPropTable)
+    
+    # Remove NA values
+    TaxonWeightedScores[is.na(TaxonWeightedScores)] <- 0
+    
+    # Calculate normalized scores, based on total abundance of each taxon
+    NormWeightedScores <- data.frame(Abundance = (apply(TPropTable, 2, sum)) / sum(TPropTable))
+    
+    # Combine weighted scores with normalized abundance
+    TaxonWeightedScores <- cbind(TaxonWeightedScores, NormWeightedScores$Abundance)
+    colnames(TaxonWeightedScores) <- c("Axis1","Axis2","Axis3","Abundance")
+    TaxonWeightedScores <- as.data.frame(TaxonWeightedScores)
+    
+    # Filter based on user-defined taxonomy relative abundance thresholds
+    TaxonWeightedScores <- filter(TaxonWeightedScores,
+                                  TaxonWeightedScores$Abundance > input$UniTaxaThresh / 100
+    )
+    
+    # Set a FeatureID column, then append taxonomic information using the FeatureKey
+    TaxonWeightedScores$FeatureID <- rownames(TaxonWeightedScores)
+    TaxonWeightedScores <- left_join(TaxonWeightedScores, FeatureKey, by = "FeatureID")
+    
+    TaxonWeightedScores
+    
+  })
+  
+  # Generate the UniFrac triplot visual
+  UniPlotVisual <- reactive({
+    
+    req(input$UniStartButton)
+    MetaData <- UniMetaFilt()
+    EnvFit <- UniEnvFitFilt()
+    TaxonScores <- UniTaxonScores()
+
+    # Call the specific UniFrac data
+    if(input$UniDissSelect == "unweighted"){
+      Pcoa <- UniUnweightedCoords()
+      Eigen <- UniUnweightedEigen()
+    }
+    
+    else if (input$UniDissSelect == "weighted"){
+      Pcoa <- UniWeightedCoords()
+      Eigen <- UniWeightedEigen()
+    }
+    
+    # Insert a SampleName column then merge the metadata
+    Pcoa$SampleName <- rownames(Pcoa)
+    Pcoa <- left_join(Pcoa, MetaData, by = "SampleName")
+    
+    # Change to categorical data 
+    Pcoa <- Pcoa %>% mutate_if(!names(.) %in% c("Axis1", "Axis2"), factor)
+    
+    # merged_df <-
+    #     merged_df %>% mutate_if(!names(.) %in% c("PCoA1", "PCoA2"), factor)
+    
+    # Define the available shapes and colors
+    # I need to add the option to include a gradient
+    AvailShapes <- c(21, 22, 23, 24, 25, 14, 13:1)
+    AvailColours <- 2:27
+    AvailFill <- 2:27
+    
+    
+    
+    #If the user selects shape options
+    if ((input$UniShapeSelect) == TRUE){
+      UniPlot <- ggplot(Pcoa, aes(x = Axis1, y = Axis2)) +
+        geom_point(size = input$UniSize, aes(
+          shape = get(isolate(input$UniShape)),
+          colour = get(input$UniFilCol),
+          fill = get(input$UniFilCol))) + 
+        
+        labs(x = paste0(
+          c("Axis1","(",round(Eigen$Axis1,1),"%)")),
+          y = paste0(
+            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+          fill = input$UniFilCol,
+          colour = input$UniFilCol,
+          shape = input$UniShape
+        ) +
+        scale_shape_manual(values = AvailShapes)
+      
+      # Uses a colour gradient if selected
+      
+      if (input$UniGradient == TRUE){
+        UniPlot <- UniPlot + scale_colour_viridis(option = input$UniPalletSelect,discrete = TRUE, direction = -1)
+        UniPlot <- UniPlot + scale_fill_viridis(option = input$UniPalletSelect,discrete = TRUE, direction = -1)
+      } else {
+        UniPlot <- UniPlot + scale_fill_manual(values = AvailFill) +
+          scale_colour_manual(values = AvailFill)
+      }
+    }
+    
+    #If the user does not select shapes
+    if ((input$UniShapeSelect) == FALSE){
+      
+      UniPlot <- ggplot(data = Pcoa, aes(x = Axis1, y = Axis2)) +
+        geom_point(size = input$UniSize, aes(
+          colour = !!sym(input$UniFilCol),
+          fill = !!sym(input$UniFilCol)
+        )) + 
+        labs(x = paste0(
+          c("Axis1","(",round(Eigen$Axis1,1),"%)")),
+          y = paste0(
+            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+          fill = input$UniFilCol,
+          colour = input$UniFilCol,
+          shape = input$UniShape
+        )
+      
+      ## If colou r gradient is selected
+      if (input$UniGradient == TRUE){
+        UniPlot <- UniPlot + scale_colour_viridis(option = input$UniPalletSelect,discrete = TRUE, direction = -1)
+        UniPlot <- UniPlot + scale_fill_viridis(option = input$UniPalletSelect,discrete = TRUE, direction = -1)
+      } else {
+        UniPlot <- UniPlot + scale_fill_manual(values = AvailFill) +
+          scale_colour_manual(values = AvailFill)
+      }
+    }
+    
+    #Add coordinates and line segments for the environmental data, but only if it is present 
+    if (dim(EnvFit)[1] != 0) {
+      UniPlot <- UniPlot + geom_segment(
+        data = EnvFit,
+        aes(
+          x = 0,
+          y = 0,
+          xend = EnvFit$Axis1,
+          yend = EnvFit$Axis2,
+        ),
+        show.legend = FALSE,
+        arrow = arrow(ends = "last")
+      ) +
+        geom_label(
+          data = EnvFit,
+          aes(
+            label = rownames(EnvFit),
+            x = EnvFit$Axis1 / 2,
+            y = EnvFit$Axis2 / 2
+          ),
+          size = 4
+        )}
+    
+    #If sample labels are selected:
+    if (input$UniSampleLabel == TRUE){
+      UniPlot <- UniPlot +
+        geom_text(aes(label = SampleName))
+    }
+    
+    
+    #Add elipses to the data
+    if ((input$UniElips) == TRUE) {
+      
+      UniPlot <- UniPlot + stat_ellipse(aes(color = get(input$UniFilCol)),
+                                   show.legend = FALSE)
+    }
+    
+    # Add taxon abundance data, but only if it is present
+    if (dim(TaxonScores)[1] != 0) {
+      UniPlot <- UniPlot + geom_point(data = TaxonScores,
+                                 aes(Axis1, Axis2, size = round(Abundance * 100, digits = 0)),
+                                 inherit.aes = FALSE,
+                                 shape = 21,
+                                 fill = NA,
+                                 colour = "black",
+                                 show.legend = TRUE
+      ) +
+        labs(size = "Relative abundance")+
+        scale_size_area(max_size = 15)
+    }
+    
+    if (dim(TaxonScores)[1] != 0) {
+      # Add taxon annotation
+      UniPlot <- UniPlot + geom_text(
+        data = TaxonScores,
+        aes(Axis1, Axis2, label = Taxon),
+        inherit.aes = FALSE,
+        size = 4
+      )
+    }
+    
+    # Customize plot aesthetics
+    UniPlot <- UniPlot +
+      theme(
+        panel.grid = element_blank(),
+        text = element_text(colour = "black"),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text = element_text(colour = "black", size = 12),
+        axis.text.x = element_text(
+          angle = 90,
+          hjust = 1,
+          vjust = 0.5,
+          size = 14,
+          face = "plain"
+        ),
+        axis.text.y.left = element_text(size = 14, face = "plain"),
+        legend.text = element_text(face = "italic", size = 16),
+        legend.title = element_text(size = 16),
+        axis.title = element_text(size = 16, face = NULL),
+        axis.text.y = element_text(size = 14),
+        strip.text.x = element_text(size = 10, face = "bold"),
+        panel.spacing = unit(0, "lines"),
+        panel.border = element_rect(
+          colour = "black",
+          size = 1,
+          fill = NA
+        ),
+        axis.ticks = element_line(colour = "black"),
+        axis.ticks.y = element_line(colour = "black"),
+        axis.line.y = element_line(colour = "black")
+      ) +
+      guides(fill = guide_legend(override.aes = list(shape = 22)))
+    
+    # Plot PCoA
+    UniPlot
+  })
+  
+  
+  # Downloads for two tables and the plot
+  output$UniStatsFullDownload <- downloadHandler(
+    filename = "UniFractStatsTable.csv",
+    content = function(Table) {
+      write.csv(UniEnvFit(), Table)
+    })
+
+  output$UniPlotDownload <- downloadHandler(
+    filename = "UniFracPlot.pdf",
+    contentType = ".pdf",
+    content = function(Plot) {
+      ggsave(
+        Plot,
+        plot = UniPlotVisual(),
+        device = "pdf",
+        height = as.numeric(input$UniPlotOutH),
+        width = as.numeric(input$UniPlotOutW),
+        units = "px",
+        scale = 4
+      )
+    })
+  
+  
+  # Output the stats table
+  output$UniTableOut <- renderDataTable({
+    Table <- UniEnvFit()
+    Table
+  })
+  
+  # Render the PCoA plot
+  UniPlotHeight <- reactive(input$UniPlotOutH)
+  UniPlotWidth <- reactive(input$UniPlotOutW)
+
+  output$UniPlotOut <- renderPlot({
+    UniPlot <- UniPlotVisual()
+    UniPlot
+  },
+  width = UniPlotWidth,
+  height = UniPlotHeight)
+
+    
+  
+  
+  
  } # End of server
