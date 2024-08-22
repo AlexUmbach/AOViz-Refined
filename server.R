@@ -932,11 +932,29 @@
                            "Order",
                            "Family",
                            "Genus",
-                           "Species"),
+                           "Species",
+                           "Sub1",
+                           "Sub2",
+                           "Sub3",
+                           "Sub4"),
                          sep = ";",
                          remove = TRUE,
                          convert = FALSE
     )
+    
+    BubbleTable <- BubbleTable %>%
+      mutate(across(c(Domain,
+                      Phylum,
+                      Class,
+                      Order,
+                      Family,
+                      Genus,
+                      Species,
+                      Sub1,
+                      Sub2,
+                      Sub3,
+                      Sub4),
+                    ~replace_na(.x, "ZZZNoTaxonInfo")))
 
     
     # Now adjust percentages decimals
