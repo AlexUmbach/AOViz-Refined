@@ -567,9 +567,7 @@
   
   # Generate a long form dataframe; keep for output
   BarPlotDataLong <- reactive({
-    browser()
-    
-    
+
     req(input$BarStartButton)
     BarTable <- BarPlotDataTran()
     MetaData <- MainMetaTable()
