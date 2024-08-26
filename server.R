@@ -39,6 +39,12 @@
       header = TRUE,
       sep = "\t"
     )
+    output$MainText <- renderUI({
+      tagList(
+        hr(style = "border-width: 3px; border-color:#A9A9A9"),
+        h3("This is your main ASV table")
+      )
+    })
     head(Table, 3)
   })
   
@@ -51,6 +57,7 @@
       sep = "\t"
     )
   })
+  
   # Output to the main panel of the page
   output$MetaTableOut <- renderDataTable({
     req(input$MetaFile)
@@ -60,6 +67,12 @@
       header = TRUE,
       sep = "\t"
     )
+    output$MetaText <- renderUI({
+      tagList(
+        hr(style = "border-width: 3px; border-color:#A9A9A9"),
+        h3("This is your metadata")
+      )
+    })
     head(Table, 6)
   })
   
@@ -71,6 +84,7 @@
       header = TRUE,
       sep = "\t"
     )
+    
   })
   
   # Output to the main panel of the page
@@ -82,6 +96,12 @@
       header = TRUE,
       sep = "\t"
     )
+    output$ContamText <- renderUI({
+      tagList(
+        hr(style = "border-width: 3px; border-color:#A9A9A9"),
+        h3("This is your contaminant list")
+      )
+    })
     head(Table, 6)
   })
   
@@ -267,8 +287,15 @@
   
   # Show this table in the main panel
   output$FinalProcessedTable <- renderDataTable({
+    req(input$MainFile)
+    req(input$MetaFile)
     Table <- FilteredTable()
-    output$proc_maintext <- renderText("This is your processed data")
+    output$FinalText <- renderUI({
+      tagList(
+      hr(style = "border-width: 3px; border-color:#A9A9A9"),
+      h3("This is your processed data")
+      )
+      })
     Table
   })
   
@@ -291,7 +318,7 @@
   
   # Now we transform the raw ASV counts into totals
   ReadCountsTotal <- reactive({
-    
+    browser()
     req(input$ReadStartButton)
     ASVTable <- FilteredTable()
     MetaData <- MainMetaTable()
@@ -339,6 +366,7 @@
   
   # Generate the read plot
   ReadPlotVisual <- reactive({
+    browser()
     
     req(input$ReadStartButton)
     ReadCounts <- ReadCountsTotal()
@@ -638,7 +666,7 @@
     
     # Now sort and combine proportions for samples with matching taxonomies
     BarTableSum <- BarTable %>% 
-      group_by(SampleName, !!sym(isolate(input$BarTaxonLevel))) %>% 
+      group_by(SampleName, !!sym(input$BarTaxonLevel)) %>% 
       summarize(Percentage = sum(Percentage)) %>%
       rename(TaxonLevel = !!sym(input$BarTaxonLevel))
     
@@ -679,7 +707,7 @@
     
     BarPlot <- BarPlot + geom_bar(colour = "black",
                                   size = 0.5,
-                                  alpha = isolate(input$BarAlpha),
+                                  alpha = input$BarAlpha,
                                   stat = "identity",
                                   position = "stack"
                                   )
@@ -690,26 +718,26 @@
     }
     
     ## Add faceting for sorting
-    if (isolate(input$BarFacet) == FALSE){
+    if (input$BarFacet == FALSE){
       BarPlot <- BarPlot +
         facet_grid(
-          ~ eval(parse(text = isolate(input$BarSortByAxis))),
+          ~ eval(parse(text = input$BarSortByAxis)),
           space = "free",
           scales = "free",
           switch = "both"
         )
     }
     
-    else if (isolate(input$BarFacet) == TRUE){
+    else if (input$BarFacet == TRUE){
       BarPlot <- BarPlot +
-        facet_nested(~ eval(parse(text = isolate(input$BarSortByAxis))) + eval(parse(text = isolate(input$BarSecondFacet))),
+        facet_nested(~ eval(parse(text = input$BarSortByAxis)) + eval(parse(text = input$BarSecondFacet)),
                      space = "free",
                      scales = "free",
                      switch = "both"
         )
     }
     
-    if (isolate(input$BarPanelBorder == "Yes")) {
+    if (input$BarPanelBorder == "Yes") {
       BarPlot <- BarPlot + theme_bw() +
         theme(panel.grid = element_blank(),
               text = element_text(colour = "black"),
@@ -722,7 +750,7 @@
                                          size = 12),
               legend.text = element_text(face = "italic", size = 12),
               legend.title = element_text(size = 14),
-              panel.spacing = unit(as.numeric(isolate(input$BarPanelSpacing)),
+              panel.spacing = unit(as.numeric(input$BarPanelSpacing),
                                    "points"),
               #legend.position = "none",
               axis.title = element_text(size = 10, face = NULL),
@@ -732,7 +760,7 @@
         )
       }
     
-    if (isolate(input$BarPanelBorder) == "No") {
+    if (input$BarPanelBorder == "No") {
       BarPlot <- BarPlot + theme_bw() +
         theme(panel.grid = element_blank(),
               text = element_text(colour = "black"),
@@ -747,7 +775,7 @@
               legend.text = element_text(face = "italic", size = 12),
               legend.title = element_text(size = 14),
               panel.border = element_blank(),
-              panel.spacing = unit(as.numeric(isolate(input$BarPanelSpacing)),
+              panel.spacing = unit(as.numeric(input$BarPanelSpacing),
                                    "points"),
               #legend.position = "none",
               axis.title = element_text(size = 10, face = NULL),
@@ -958,7 +986,7 @@
     
     # Now adjust percentages decimals
     BubbleTable$Percentage <- round(BubbleTable$Percentage,
-                                    digits = as.numeric(isolate(input$BubbleDec))
+                                    digits = as.numeric(input$BubbleDec)
                                     )
     
     # Add the metadata
@@ -1041,7 +1069,7 @@
     BubbleTable <-
       BubbleTable[with(BubbleTable,
                        order(eval(parse(
-                              text = isolate(input$BubbleTaxSort)
+                              text = input$BubbleTaxSort
                             )), Taxon, decreasing = TRUE)), ]
     BubbleTable$Taxon <- as.character(BubbleTable$Taxon)
     BubbleTable$Taxon <- factor(BubbleTable$Taxon,
@@ -1065,10 +1093,10 @@
     BubblePlot <- ggplot(BubbleTable,
                          aes(
                            x = reorder(SampleName,
-                                       isolate(!!sym(input$BubbleSortXAxis))),
+                                      !!sym(input$BubbleSortXAxis)),
                            y = Taxon,
-                           fill = as.factor(isolate(!!sym(input$BubbleColour))),
-                           colour = isolate(!!sym(input$BubbleColour)),
+                           fill = as.factor(!!sym(input$BubbleColour)),
+                           colour = !!sym(input$BubbleColour),
                            size = Percentage,
                            )
                          ) +
