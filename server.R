@@ -318,7 +318,7 @@
   
   # Now we transform the raw ASV counts into totals
   ReadCountsTotal <- reactive({
-    browser()
+    
     req(input$ReadStartButton)
     ASVTable <- FilteredTable()
     MetaData <- MainMetaTable()
@@ -366,17 +366,16 @@
   
   # Generate the read plot
   ReadPlotVisual <- reactive({
-    browser()
     
     req(input$ReadStartButton)
     ReadCounts <- ReadCountsTotal()
     MetaData <- MainMetaTable()
     
     # Determine whether it will be a bar or boxplot
-    if (isolate(input$BoxSelect) == "Bar") {
+    if (input$BoxSelect == "Bar") {
       ReadPlot <- ggplot(data = ReadCounts, aes(x = SampleName,
                                                       y = Total,
-                                                      width = isolate(input$ReadWidth)
+                                                      width = input$ReadWidth
                                                       ))
       
       ReadPlot <- ReadPlot + geom_bar(fill = "#D3D3D3",
@@ -391,9 +390,9 @@
       
     }
     
-    if (isolate(input$BoxSelect) == "Box") {
+    if (input$BoxSelect == "Box") {
       ReadPlot <- ggplot(data = ReadCounts, 
-                         aes(x = as.factor(isolate(input$ReadSortByAxis)),
+                         aes(x = as.factor(input$ReadSortByAxis),
                              y = Total,
                              width = 2
                           ))
@@ -421,9 +420,9 @@
     # setting the graph so that it begins at the x-axis and there is no gap. Also sets the limits of the y-axis.
     ReadPlot <- ReadPlot + scale_y_continuous(
       expand = c(0, 0),
-      limit = (c(0, isolate(
+      limit = (c(0, 
         input$ReadYAxisLimit)
-        )
+        
       )
     )
         
@@ -432,8 +431,8 @@
     ReadPlot <- ReadPlot +
       facet_grid( ~ eval(
         parse(
-          text = isolate(
-            input$ReadSortByAxis)
+          text = 
+            input$ReadSortByAxis
                           )
                         ),
         space = "free",
@@ -442,7 +441,7 @@
       )
     
     # Now set options for borders
-    if (isolate(input$ReadPanel) == "Yes") {
+    if (input$ReadPanel == "Yes") {
       ReadPlot <- ReadPlot + theme_bw() +
         theme(
           panel.grid = element_blank(),
@@ -458,7 +457,7 @@
           ),
           legend.text = element_text(face = "italic", size = 12),
           legend.title = element_text(size = 14),
-          panel.spacing = isolate(unit(as.numeric(input$ReadPanelSpacing), "points")),
+          panel.spacing = unit(as.numeric(input$ReadPanelSpacing), "points"),
           #legend.position = "none",
           axis.title = element_text(size = 14, face = NULL),
           axis.text.y = element_text(size = 16),
@@ -467,7 +466,7 @@
         )
     }
     
-    if (isolate(input$ReadPanel) == "No") {
+    if (input$ReadPanel == "No") {
       ReadPlot <- ReadPlot + theme_bw() +
         theme(
           panel.grid = element_blank(),
@@ -483,7 +482,7 @@
           legend.text = element_text(face = "italic", size = 12),
           legend.title = element_text(size = 14),
           panel.border = element_blank(),
-          panel.spacing = isolate(unit(as.numeric(input$ReadPanelSpacing), "points")),
+          panel.spacing = unit(as.numeric(input$ReadPanelSpacing), "points"),
           #legend.position = "none",
           axis.title = element_text(size = 14, face = NULL),
           axis.text.y = element_text(size = 16),
