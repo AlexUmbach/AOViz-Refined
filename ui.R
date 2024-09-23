@@ -504,7 +504,11 @@ ui <- navbarPage(id = "navbarID",
                               ),
                               fluidRow(
                                 column(6, downloadButton("PPlotSave","Save figure", style = "width: 100%;")),
-                                column(6, downloadButton("PEnvFitTableSave", "Download table", style = "width: 100%;")),
+                                column(6, downloadButton("PEnvFitTableSave", "Save stats", style = "width: 100%;")),
+                              ),
+                              fluidRow(
+                                column(6, downloadButton("PPlotDistance","Save distance", style = "width: 100%;")),
+                                column(6, downloadButton("PPlotPcoa", "Save PCoA", style = "width: 100%;"))
                               ),
                               br(),
                               
@@ -576,7 +580,11 @@ ui <- navbarPage(id = "navbarID",
                               ),
                               fluidRow(
                                 column(6, downloadButton("UniPlotDownload","Save figure", style = "width: 100%;")),
-                                column(6, downloadButton("UniStatsFullDownload", "Download table", style = "width: 100%;")),
+                                column(6, downloadButton("UniStatsFullDownload", "Save stats", style = "width: 100%;")),
+                              ),
+                              fluidRow(
+                                column(6, downloadButton("UniPlotDistance","Save distance", style = "width: 100%;")),
+                                column(6, downloadButton("UniPlotPcoa", "Save PCoA", style = "width: 100%;")),
                               ),
                               br(),
                               

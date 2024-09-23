@@ -1653,20 +1653,30 @@
     SrsPropTable
   })
   
-  #Generate the PCoA table
-  PPcoa <- reactive({
+  #Generate the distance matrix table
+  PPDistance <- reactive({
     
     req(input$PStartButton)
     PPropTable <- PPropTable()
     
     TPropTable <- t(PPropTable)
     BrayCurtis <- as.matrix(vegdist(TPropTable, method = "bray"))
+    BrayCurtis
     
-    # Perform the PCoA
-    PPcoa <- pcoa(as.dist(BrayCurtis))
-    PPcoa
   })
   
+  # Generate the PCoA plot
+  PPcoa <- reactive({
+    
+    req(input$PStartButton)
+    BrayCurtis <- PPDistance()
+    
+
+    PPDistance <- pcoa(as.dist(BrayCurtis))
+    PPDistance
+    
+  })
+
   # Isolate the axis1 and axis2 coordinates
   PCoords <- reactive({
     
@@ -1991,6 +2001,19 @@
         scale = 4
       )
     })
+  
+  output$PPlotDistance <- downloadHandler(
+    filename = "BrayCrutisDistance.csv",
+    content = function(Table) {
+      write.csv(PPDistance(), Table)
+    })
+  
+  output$PPlotPcoa <- downloadHandler(
+    filename = "BrayCurtisPcoa.csv",
+    content = function(Table) {
+      write.csv(PCoords(), Table)
+    })
+  
   
   # Render the stats table
   output$PTableOut <- renderTable({
@@ -2340,10 +2363,9 @@
           colour = get(input$UniFilCol),
           fill = get(input$UniFilCol))) + 
         
-        labs(x = paste0(
-          c("Axis1","(",round(Eigen$Axis1,1),"%)")),
-          y = paste0(
-            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+        labs (
+          x = paste("Axis1","(",round(Eigen$Axis1,2),"%",")"),
+          y = paste("Axis2","(",round(Eigen$Axis2,2),"%",")"),
           fill = input$UniFilCol,
           colour = input$UniFilCol,
           shape = input$UniShape
@@ -2369,10 +2391,13 @@
           colour = !!sym(input$UniFilCol),
           fill = !!sym(input$UniFilCol)
         )) + 
-        labs(x = paste0(
-          c("Axis1","(",round(Eigen$Axis1,1),"%)")),
-          y = paste0(
-            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+        labs (
+          x = paste("Axis1","(",round(Eigen$Axis1,2),"%",")"),
+          y = paste("Axis2","(",round(Eigen$Axis2,2),"%",")"),
+        # labs(x = paste0(
+        #   c("Axis1","(",round(Eigen$Axis1,1),"%)")),
+        #   y = paste0(
+        #     c("Axis1","(",round(Eigen$Axis2,1),"%)")),
           fill = input$UniFilCol,
           colour = input$UniFilCol,
           shape = input$UniShape
@@ -2509,6 +2534,32 @@
       )
     })
   
+  output$UniPlotDistance <- downloadHandler(
+    filename = "UniPlotDistance.csv",
+    content = function(UnPlotDistance) {
+      if (input$UniDissSelect == "unweighted"){
+        Distance <- UniDissUnweighted()
+      }
+      if (input$UniDissSelect == "weighted"){
+        Distance <- UniDissWeighted()
+      }
+      
+      write.csv(Distance, UnPlotDistance)
+    })
+  
+  output$UniPlotPcoa <- downloadHandler(
+    filename = "UniPlotPcoa.csv",
+    content = function(UniPcoa) {
+      if (input$UniDissSelect == "unweighted"){
+        PCoords <- UniUnweightedCoords()
+      }
+      if (input$UniDissSelect == "weighted"){
+        PCoords <- UniWeightedCoords()
+      }
+      
+      write.csv(PCoords, UniPcoa)
+    })
+  
   
   # Output the stats table
   output$UniTableOut <- renderDataTable({
@@ -2527,8 +2578,6 @@
   width = UniPlotWidth,
   height = UniPlotHeight)
 
-    
-  
   
   
  } # End of server
