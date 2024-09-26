@@ -168,12 +168,12 @@
     # If collapse table checkbox is checked, then transform. Otherwise, leave unaltered.
     if (input$IsMainCollapsed == TRUE) {
       ASVTable$Consensus.Lineage <- ASVTable$Feature.ID # Set the feature ID to imitate the taxonomy in an uncollapsed table
-      ASVTable$rowID <- 1:nrow(ASVTable) # Add a column of unique numbers to imitate unique feature IDs
+      # ASVTable$rowID <- 1:nrow(ASVTable) # Add a column of unique numbers to imitate unique feature IDs
       ASVTable$ReprSequence <- 1:nrow(ASVTable)
       ASVTable <- ASVTable %>% mutate(ReprSequence = "Not Applicable")
     } else {
       if (input$IsMainCollapsed == FALSE) {
-          ASVTable$rowID <- 1:nrow(ASVTable) # Add a column called rowID; if present it will be overwritten, so user caution is advised
+          # ASVTable$rowID <- 1:nrow(ASVTable) # Add a column called rowID; if present it will be overwritten, so user caution is advised
         }
     }
     ASVTable
