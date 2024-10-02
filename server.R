@@ -184,6 +184,7 @@
   # should be modified so that everything is consistent.
   FeatureDataKey <- reactive({
     
+    
     ASVTable <- TransDataCollapsed()
     
     FeatureKey <- data.frame(FeatureID = ASVTable$Feature.ID, 
@@ -876,6 +877,7 @@
   
   # We must regenerate the proportion tables and associated data
   BubbleDataTran <- reactive({
+    
     req(input$BubbleStartButton)
     BubbleTable <- FilteredTable()
     FeatureKey <- FeatureDataKey()
@@ -908,6 +910,7 @@
   
   # Create a long form dataframe
   BubbleDataLong <- reactive({
+    
     
     req(input$BubbleStartButton)
     BubbleTable <- BubbleDataTran()
@@ -1081,6 +1084,7 @@
   
   # Now create the bubbleplot visual
   BubblePlotVisual <- reactive({
+    
     
     req(input$BubbleStartButton)
     BubbleTable <- BubbleDataLong()
@@ -1832,14 +1836,14 @@
             colour = get(input$PFillCol),
             fill = get(input$PFillCol))) + 
           
-          labs(x = paste0(
-            c("Axis1","(",round(Eigen$Axis1,1),"%)")),
-            y = paste0(
-            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+          labs(x = paste0("Axis1(",round(Eigen$Axis1,1),"%)"),
+               y = paste0("Axis2(",round(Eigen$Axis2,1),"%)"),
+          
             fill = input$PFillCol,
             colour = input$PFillCol,
             shape = input$PShape
           ) +
+          
           scale_shape_manual(values = AvailShapes)
         
         # Uses a colour gradient if selected
@@ -1861,10 +1865,10 @@
             colour = !!sym(input$PFillCol),
             fill = !!sym(input$PFillCol)
           )) + 
-        labs(x = paste0(
-          c("Axis1","(",round(Eigen$Axis1,1),"%)")),
-          y = paste0(
-            c("Axis1","(",round(Eigen$Axis2,1),"%)")),
+          
+          labs(x = paste0("Axis1(",round(Eigen$Axis1,1),"%)"),
+               y = paste0("Axis2(",round(Eigen$Axis2,1),"%)"),
+          
           fill = input$PFillCol,
           colour = input$PFillCol,
           shape = input$PShape
@@ -2364,8 +2368,8 @@
           fill = get(input$UniFilCol))) + 
         
         labs (
-          x = paste("Axis1","(",round(Eigen$Axis1,2),"%",")"),
-          y = paste("Axis2","(",round(Eigen$Axis2,2),"%",")"),
+          x = paste0("Axis1","(",round(Eigen$Axis1,2),"%",")"),
+          y = paste0("Axis2","(",round(Eigen$Axis2,2),"%",")"),
           fill = input$UniFilCol,
           colour = input$UniFilCol,
           shape = input$UniShape
@@ -2392,8 +2396,8 @@
           fill = !!sym(input$UniFilCol)
         )) + 
         labs (
-          x = paste("Axis1","(",round(Eigen$Axis1,2),"%",")"),
-          y = paste("Axis2","(",round(Eigen$Axis2,2),"%",")"),
+          x = paste0("Axis1","(",round(Eigen$Axis1,2),"%",")"),
+          y = paste0("Axis2","(",round(Eigen$Axis2,2),"%",")"),
         # labs(x = paste0(
         #   c("Axis1","(",round(Eigen$Axis1,1),"%)")),
         #   y = paste0(
@@ -2402,6 +2406,7 @@
           colour = input$UniFilCol,
           shape = input$UniShape
         )
+
       
       ## If colou r gradient is selected
       if (input$UniGradient == TRUE){
