@@ -7,7 +7,8 @@ Because AOViz is built using RShiny, users can simply download this repository t
 Users require two files: an ASV table and an associated metadata table, both in a .txt or .tsv format. It is <b>critical</b> that the column names match the examples below <i>exactly</i>. Specifically, "Feature ID", "Consensus.Lineage", and "ReprSequence" in the ASV table, and "SampleName" in the metadata table. Note that the metadata "SampleName" column contains sample names that match the sample names in the ASV table. If you are having errors using AOViz, this is the first place to check. 
 
 <b>ASV table</b>
-![ASV_example](https://github.com/AlexUmbach/AOViz/assets/56092913/4af226dc-c0b0-4f96-a7bd-8ce8fac773f2)
+![ASVExample](https://github.com/user-attachments/assets/ff567d70-84c3-4fa0-8ef8-6e9c8d068bf9)
+
 
 <b>Metadata table</b>
 
@@ -22,10 +23,12 @@ AOViz produces four main plots: a sequencing depth plot, a taxonomic bar plot, a
 ![read_plot_box_example](https://github.com/AlexUmbach/AOViz/assets/56092913/64021541-698e-452f-b9d0-767c1ca26089)
 
 # Taxonomy bar plot (class)
-![taxa_barplot_example](https://github.com/AlexUmbach/AOViz/assets/56092913/da04498a-6c86-47fc-83b0-d92caf03bbe9)
+![taxa_barplot_example](https://github.com/user-attachments/assets/cb6d8488-b63c-4b1f-ab24-31b6b8c55e1f)
+
 
 # Bubble plot
-![bubbleplot_5ab_example](https://github.com/AlexUmbach/AOViz/assets/56092913/8cdd7aba-06f6-4865-860d-1e57c2b1ad68)
+![bubbleplot_5ab_example](https://github.com/user-attachments/assets/9e870efe-24b6-4d24-bd4f-b05d669d02fd)
+
 
 # Bray-Curtis triplot. 
 For this plot, arrows represent numeric medata fit to the PCoA coordinates. These arrows are associated with p-values and R2 values (contained within a stats table available for download). Taxonomic relative abundance information is also mapped to PCoA data and shown in ordination space. Also available in UniFrac if provided a tree in newick format. 
