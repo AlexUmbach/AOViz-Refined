@@ -9,7 +9,7 @@ Users require two files: an ASV table and an associated metadata table, both in 
 <b>ASV table</b>
 ![ASVExample](https://github.com/user-attachments/assets/ff567d70-84c3-4fa0-8ef8-6e9c8d068bf9)
 
-<bCollapsed ASV table (genus-level)</b>
+<b>Collapsed ASV table (genus-level)</b>
 ![CollASVExample](https://github.com/user-attachments/assets/d92d94c1-27b7-40c7-820f-123fd3c7563c)
 
 
@@ -33,6 +33,6 @@ AOViz produces four main plots: a sequencing depth plot, a taxonomic bar plot, a
 ![bubbleplot_5ab_example](https://github.com/user-attachments/assets/9e870efe-24b6-4d24-bd4f-b05d669d02fd)
 
 
-# Bray-Curtis triplot. 
-For this plot, arrows represent numeric medata fit to the PCoA coordinates. These arrows are associated with p-values and R2 values (contained within a stats table available for download). Taxonomic relative abundance information is also mapped to PCoA data and shown in ordination space. Also available in UniFrac if provided a tree in newick format. 
+# Bray-Curtis and UniFrac triplot. 
+For this plot, arrows represent numeric medata fit to the PCoA coordinates. These arrows are associated with p-values and R2 values (contained within a stats table available for download). Taxonomic relative abundance information is also mapped to PCoA data and shown in ordination space. Also available in UniFrac if provided a tree in newick format (output from QIIME2). 
 ![braycurtis_triplot_example](https://github.com/AlexUmbach/AOViz/assets/56092913/d0627b17-48ae-40dc-b6b6-41b96e659dfe)
