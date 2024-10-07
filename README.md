@@ -9,7 +9,7 @@ Users require two files: an ASV table and an associated metadata table, both in 
 <b>ASV table</b>
 ![ASVExample](https://github.com/user-attachments/assets/ff567d70-84c3-4fa0-8ef8-6e9c8d068bf9)
 
-<b?Collapsed ASV table (genus-level)</b>
+<bCollapsed ASV table (genus-level)</b>
 ![CollASVExample](https://github.com/user-attachments/assets/d92d94c1-27b7-40c7-820f-123fd3c7563c)
 
 
