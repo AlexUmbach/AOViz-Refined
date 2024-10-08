@@ -1103,10 +1103,28 @@
                            size = Percentage,
                            )
                          ) +
-      guides(fill = "none", colour = "none") +
-      labs(size = "Relative abundance")
-    
-    
+      labs(size = "Relative abundance",
+           fill = input$BubbleColour) +
+      theme(
+        legend.position = "bottom",  # Global legend position
+        legend.box = "vertical"     # Stack legends vertically
+      ) + 
+      
+      if (input$BubbleAddLegend == "TRUE"){
+        guides(
+          colour = "none",
+          fill = guide_legend(override.aes = list(shape = 21, size = 5),order = 2),
+          size = guide_legend(order = 1, direction = "vertical")
+        )
+      } else {
+        guides(
+          colour = "none",
+          fill = "none",
+          fill = guide_legend(order = 2),
+          size = guide_legend(order = 1, direction = "vertical"))
+      }
+
+
     # Rename using SampleShort column
     if (input$BubbleRename == TRUE){
       BubblePlot <- BubblePlot + scale_x_discrete(breaks = BubbleTable$SampleName, labels = BubbleTable$SampleShort)
@@ -1297,7 +1315,7 @@
           strip.background.y = element_rect(fill = "white"),
           strip.background.x = element_rect(fill = "white"),
           panel.spacing = unit(as.numeric(input$BubblePanelSpacing), "points"),
-          legend.position = "bottom",
+          # legend.position = "bottom",
           #panel.grid = element_line(colour = "grey"),
           #axis.line.y = element_line(colour="black",size=0.5),
           #panel.border = element_blank(),
@@ -1321,7 +1339,7 @@
           strip.background.y = element_rect(fill = "white"),
           strip.background.x = element_rect(fill = "white"),
           panel.spacing = unit(as.numeric(input$BubblePanelSpacing), "points"),
-          legend.position = "bottom",
+          # legend.position = "bottom",
           #panel.grid = element_line(colour = "grey"),
           #axis.line.y = element_line(colour="black",size=0.5),
           panel.border = element_blank(),
@@ -1461,7 +1479,7 @@
         legend.text = element_text(face = "italic", size = 12),
         legend.title = element_text(size = 10),
         panel.spacing = unit(as.numeric(input$BubblePanelSpacing), "points"),
-        legend.position = "none",
+        # legend.position = "none",
         axis.title.x = element_blank(),
         strip.background = element_rect(fill = "white", color = "black"),
         axis.title = element_text(size = 10, face = NULL),
@@ -1580,7 +1598,7 @@
       axis.text.x = element_text(angle = 60, hjust =1.4, vjust=1.2,size=12,face = "plain"),
       legend.text = element_text(face = "plain",size = 16),
       legend.title = element_text(size=16),
-      legend.position = "none",
+      # legend.position = "none",
       axis.title.y = element_blank(),
       axis.text.y = element_blank(),
       strip.text.x = element_text(size=10,face="bold"),
