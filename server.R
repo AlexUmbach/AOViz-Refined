@@ -664,11 +664,16 @@
     BarTable <- BarPlotDataLong()
     MetaData <- MainMetaTable()
     
-    # Now sort and combine proportions for samples with matching taxonomies
-    BarTableSum <- BarTable %>% 
-      group_by(SampleName, !!sym(input$BarTaxonLevel)) %>% 
-      summarize(Percentage = sum(Percentage)) %>%
-      rename(TaxonLevel = !!sym(input$BarTaxonLevel))
+    # BarTable$TaxonLevel <- BarTable$input$BarTaxonLevel
+    
+    # Now sort and combine proportions for samples with matching taxonomies. This used to work but for some reason stopped.
+    BarTableSum <- BarTable %>%
+      group_by(SampleName, !!sym(input$BarTaxonLevel)) %>%
+      summarize(Percentage = sum(Percentage), .groups = "drop")
+      # rename(TaxonLevel = input$BarTaxonLevel)
+    
+    #Manually add the new column
+    BarTableSum$TaxonLevel <- BarTableSum[[input$BarTaxonLevel]]
     
     # Filter samples to "other" category based on a cut-off
     IncludedSamples <- aggregate(BarTableSum$Percentage,
