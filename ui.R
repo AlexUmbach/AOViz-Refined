@@ -622,6 +622,76 @@ ui <- navbarPage(id = "navbarID",
                  ),
                  
                  #### Next Plot ####
+                 tabPanel("Build Your Own Triplot",
+                          sidebarLayout(
+                            sidebarPanel(
+                              fileInput("BYDissMatrix","upload matrix"),
+                              fileInput("BYASVTable","upload rarefied table"),
+                              fileInput("BYMetaData","upload metadata"),
+                              numericInput("BYPEnvPThresh", "Select your p-value threshold (0 - 1)", min = 0, max = 1, value = 0.5),
+                              numericInput("BYPEnvRThresh", "Select your R-value threshold (0 - 1)", min = 0, max = 1, value = 0.5),
+                              numericInput("BYPTaxaThresh", "Select your taxon abundance (0 - 100)", min = 0, max = 100, value = 5),
+                              hr(style = "border-width: 3px"),
+                              selectInput("BYPFillCol","Select your fill colour",choices = "Updating"),
+                              sliderInput("BYPSizeSelect", "Change your point size", value = 5,min = 0, max = 15),
+                              checkboxInput("BYPGradient", "Do you want a colour gradient instead?", value = FALSE),
+                              selectInput("BYPPalletSelect","Select a specific colour pallet", choices = c("viridis","magma","plasma","inferno","cividis","mako","rocket","turbo")),
+                              hr(style = "border-width: 3px"),
+                              checkboxInput("BYPSampleLabel", "Do you want to label your samples?", value = FALSE),
+                              checkboxInput("BYPShapeChoice","Do you want to add a shape variable?",value = FALSE),
+                              
+                              # Conditional for shape selection
+                              conditionalPanel(
+                                condition = "input.BYPShapeChoice == true",
+                                selectInput("BYPShape","Select your shape",choices = "Updating"),
+                              ),
+                              checkboxInput("BYPElips","Do you want to include statistically generated elipses?", value = FALSE),
+                              
+                              fluidRow(
+                                column(6,numericInput("BYPPlotOutW",label = "Plot width",value = 600)),
+                                column(6,numericInput("BYPPlotOutH",label = "Plot height",value = 400)),
+                              ),
+                              fluidRow(
+                                column(6, downloadButton("BYPPlotSave","Save figure", style = "width: 100%;")),
+                                column(6, downloadButton("BYPEnvFitTableSave", "Save stats", style = "width: 100%;")),
+                              ),
+                              fluidRow(
+                                column(6, downloadButton("BYPPlotDistance","Save distance", style = "width: 100%;")),
+                                column(6, downloadButton("BYPPlotPcoa", "Save PCoA", style = "width: 100%;"))
+                              ),
+                              br(),
+                              
+                              width = 3,
+                              style = "overflow-y:scroll; max-height: 850px; position:relative;border-color:#000000"
+                            ),
+                            mainPanel(width = 9,
+                                      fluidRow(
+                                        box(h3("Bray-Curtis PCoA triplot"),
+                                            p("A Bray-Curtis PCoA triplot displays sample dissimilarity along with associated influential taxa and environmental data. Samples that group together are more similar to eachother than samples further apart in ordination space. Thresholds for taxon relative abundance (proportion of reads) and p-values for significance of environmental variables can be selected in the left panel. Arrow length is proportional to the magnitude of the effect for a given environmental parameter."),
+                                            p("To generate this triplot, an ASV table is first 'rarefied' to a desired number of reads using scaling with ranked subsampling (SRS), using the", em("SRS")," R package. This normalized table is then converted to a proportion table, then into a Bray-Curtis dissimilarity matrix and PCoA matrix using the",em("vegan"),"and",em("ape")," packages. Environmental variables are fit to the PCoA coordinates using the",em("envfit")," command at 10,000 permutations, and taxa are additionally mapped using normalized weighted scores based on taxon abundance."),
+                                            p("All samples below the provided SRS depth will be removed prior to PCoA and envfit analyses and will not be plotted (so be careful)"),
+                                            width = 12)),
+                                      dataTableOutput("BYPTableOut"),
+                                      # fluidRow(
+                                      #   box(
+                                      #     sliderInput("PPlotOutW","Plot width",min = 0, max = 3000,step = 100,value = 1000),
+                                      #     sliderInput("PPlotOutH","Plot height",min = 0, max = 3000,step = 100,value = 600),
+                                      #     downloadButton("PEnvFitTableSave","Download triplot stats table"),
+                                      #     downloadButton("PPlotSave","Save figure"),
+                                      #     width = 6
+                                      #   ),
+                                      # ),
+                                      dataTableOutput("BYPStatsTableOut"),
+                                      actionButton("BYPStartButton",label = "Generate Plot!", style = "width: 100%; height: 80px; font-size: 24px; background-color: lightblue;"),
+                                      
+                                      br(),
+                                      br(),
+                                      plotOutput("BYPPlotOut") %>% withSpinner(type = 1,color.background = "white"),
+                                      style = "overflow-y:scroll; max-height: 850px; position:relative;"
+                                      
+                            )
+                          )
+                 ),
                  
                  # #### FAQ PAGE ####
                  tabPanel(title = "FAQ",

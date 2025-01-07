@@ -2608,4 +2608,622 @@
 
   
   
+  #### Build Your Own PCOA ####
+  
+  # Populate the drop down menus and update inputs
+  observeEvent(input$BYMetaData, {
+    req(input$BYMetaData)
+    MetaData <- MainBYMetaTable()
+    MetaColNames <- c(colnames(MetaData), "Taxon")
+    MetaColNames <- MetaColNames[MetaColNames != "SampleName"]
+    updateSelectInput(session, "BYPFillCol", choices = sort(MetaColNames))
+    updateSelectInput(session, "BYPElipCol", choices = sort(MetaColNames))
+    updateSelectInput(session, "BYPShape", choices = sort(MetaColNames))
+    updateSelectInput(session, "BYPPalletSelect")
+    updateSelectInput(session, "BYPGradient")
+  })
+  
+  # Upload the dissimialry matrix
+  BYDissData <- reactive({
+    read.table(
+      file = input$BYDissMatrix$datapath,
+      fill = TRUE,
+      header = TRUE, 
+      sep = "\t"
+    )
+  })
+  
+  # Upload the dissimialry matrix
+  BYASVData <- reactive({
+    read.table(
+      file = input$BYASVTable$datapath,
+      fill = TRUE,
+      header = TRUE, 
+      sep = "\t"
+    )
+  })
+  
+  # Upload the dissimialry matrix
+  BYMetaData <- reactive({
+    read.table(
+      file = input$BYMetaData$datapath,
+      fill = TRUE,
+      header = TRUE, 
+      sep = "\t"
+    )
+  })
+  
+  # Process data
+  
+  # Start by removing samples in the ASV table that are not present in the metadata tables
+  MainBYDissTable <- reactive({
+    DissTable <- BYDissData()
+    MetaTable <- BYMetaData()
+    
+    # Fill any missing cells with zeros
+    DissTable[is.na(DissTable)] <- 0
+    
+    MetaNames <-
+      c(
+        MetaTable$SampleName,
+        "Consensus.Lineage",
+        "rowID",
+        "Feature.ID",
+        "ReprSequence"
+      )
+    DissTable <- DissTable[, names(DissTable) %in% MetaNames]
+    rownames(DissTable) <- DissTable$Feature.ID
+    DissTable
+  })
+  
+  # Start by removing samples in the ASV table that are not present in the metadata tables
+  MainBYASVTable <- reactive({
+    ASVTable <- BYASVData()
+    MetaTable <- BYMetaData()
+    
+    # Fill any missing cells with zeros
+    ASVTable[is.na(ASVTable)] <- 0
+    
+    MetaNames <-
+      c(
+        MetaTable$SampleName,
+        "Consensus.Lineage",
+        "rowID",
+        "Feature.ID",
+        "ReprSequence"
+      )
+    ASVTable <- ASVTable[, names(ASVTable) %in% MetaNames]
+    rownames(ASVTable) <- ASVTable$Feature.ID
+    ASVTable
+  })
+  
+  # Now remove metadata columns associated with samples that are not present in the ASV table
+  MainBYMetaTable <- reactive({
+    ASVTable <- MainBYASVTable()
+    MetaTable <- BYMetaData()
+    
+    MetaNames <-
+      c(
+        MetaTable$SampleName,
+        "Consensus.Lineage",
+        "rowID",
+        "Feature.ID",
+        "ReprSequence"
+      )
+    ASVTable <- ASVTable[, names(ASVTable) %in% MetaNames]
+    MetaTable <- MetaTable %>% filter(SampleName %in% colnames(ASVTable))
+    MetaTable <- replace(MetaTable, is.na(MetaTable), "NA")
+    MetaTable
+  })
+  
+  
+  BYFeatureDataKey <- reactive({
+    
+    
+    
+    ASVTable <- MainBYASVTable()
+    
+    FeatureKey <- data.frame(FeatureID = ASVTable$Feature.ID, 
+                             rowID = ASVTable$rowID, 
+                             OriginalTaxonomy = ASVTable$Consensus.Lineage,
+                             ReprSequence = ASVTable$ReprSequence,
+                             AppendedTaxonomy = paste(ASVTable$Consensus.Lineage, "_", ASVTable$rowID))
+    
+    # Now we transform the the taxonomy labels in the FeatureKey, so they're formatted for visuals
+    FeatureKey$Taxon <- FeatureKey$OriginalTaxonomy
+    
+    # Remove numbers and special characters from lineages, and substitutes undefined ambiguous taxa
+    labels <- FeatureKey$OriginalTaxonomy
+    labels <- gsub(" ", "", labels)
+    labels <- gsub("_[0-9]*$", "", labels)
+    labels <- gsub(" ", "", labels)
+    labels <- gsub("(;Ambiguous__taxa)", ";s__Ambiguous_taxa", labels)
+    labels <- gsub("(;Ambiguous_taxa)", ";s__Ambiguous_taxa", labels)
+    
+    # Truncate taxonomic lineages for readability (default is "Yes")
+    # if (input$TruncateTaxa == "Yes") {
+    labels <- paste(";", sep = "", labels)
+    labels <- gsub("(;\\s*Ambiguous_taxa)", "", labels)
+    labels <- gsub("(uncultured.*)", "", labels)
+    labels <- gsub("(__uncultured.*)", "", labels)
+    labels <- gsub("(unidenti.*)", "", labels)
+    labels <- gsub("(__unidenti.*)", "", labels)
+    labels <- gsub("(;.__Ambiguous_taxa)", "", labels)
+    labels <- gsub("(;._Ambiguous_taxa)", "", labels)
+    labels <- gsub("(;s__$)", "", labels)
+    labels <- gsub("(;g__$)", "", labels)
+    # }
+    
+    # Remove the prefixes associated with SILVA classifiers (e.g., D_*__ or p_, f_)
+    labels <- gsub("(D_.__)", "", labels)
+    labels <- gsub(";$", "", labels)
+    labels <- gsub("(D_.__$)", "", labels)
+    
+    # Option to include this exclude this step; leaving here incase someone requests it back
+    # if (input$remove_prefix == "Yes") {
+    #   labels <- gsub("(D_.__)", "", labels)
+    #   labels <- gsub(";$", "", labels)
+    # }
+    # labels <- gsub("(D_.__$)", "", labels)
+    
+    labels <- gsub("(d__)", "", labels)
+    labels <- gsub("(p__)", "", labels)
+    labels <- gsub("(c__)", "", labels)
+    labels <- gsub("(o__)", "", labels)
+    labels <- gsub("(f__)", "", labels)
+    labels <- gsub("(g__)", "", labels)
+    labels <- gsub("(s__)", "", labels)
+    labels <- gsub(" ", "", labels)
+    labels <- gsub("(;metagenome$)", "", labels)
+    labels <- gsub("(__.$)", "", labels)
+    labels <- gsub("(;__)", "", labels)
+    labels <- gsub("(;$)", "", labels)
+    labels <- gsub("(;$)", "", labels) # This is not a duplicate. Leave here.
+    labels <- gsub("^;","", labels)
+    
+    # Retrieves the terminal taxon string
+    FeatureKey$Labels <- labels
+    FeatureKey$Taxon <- paste(gsub(".*;", "", FeatureKey$Labels), FeatureKey$rowID, sep = "_")
+    
+    FeatureKey
+  })
+  
+  
+
+  
+  # Create an SRS table
+  PSrsTable <- reactive({
+    # 
+    # req(input$BYPStartButton)
+    # 
+    # SrsTable <- FilteredTable()
+    # FeatureKey <- FeatureDataKey()
+    # SrsDepth <- isolate(input$SrsDepth)
+    # 
+    # SrsTable <- SRS(SrsTable, Cmin = SrsDepth, seed = 123)
+    # rownames(SrsTable) <- FeatureKey$FeatureID
+    # 
+    SrsTable <- MainBYASVTable()
+  })
+  
+  # Generate a proportion table
+  PPropTable <- reactive({
+    req(input$BYPStartButton)
+    
+    
+    Table <- MainBYASVTable()
+    Table <- subset(Table, select = -c(Feature.ID, rowID, Consensus.Lineage, ReprSequence))
+
+    
+    # 
+    # SrsTable <- PSrsTable()
+    # MetaData <- BYMetaData()
+    # 
+    # # Create a proportion table
+    # SrsPropTable <- prop.table(as.matrix(SrsTable),2) * 100
+    # SrsPropTable <- as.data.frame(SrsPropTable)
+    # 
+    # # Remove zeros
+    # # SrsTable <- SrsTable[, colSums(is.na(SrsTable)) == 0]
+    # 
+    # # If analyzing contaminants, match between ASV table and ASV list, and keep only those that match
+    # if (input$ContamChoice == "Analyze"){
+    #   Contams <- MainContamTable()
+    #   Matches <- intersect(rownames(SrsPropTable),rownames(Contams))
+    #   SrsPropTable <- SrsPropTable[Matches, ]
+    #   
+    #   SrsPropTable
+    #   
+    # }
+    
+    Table
+    
+  })
+  
+  #Generate the distance matrix table
+  PPDistance <- reactive({
+    # 
+    # req(input$BYPStartButton)
+    # PPropTable <- PPropTable()
+    # 
+    # TPropTable <- t(PPropTable)
+    # BrayCurtis <- as.matrix(vegdist(TPropTable, method = "bray"))
+    BrayCurtis <- MainBYDissTable()
+    
+  })
+  
+  # Generate the PCoA plot
+  PPcoa <- reactive({
+    
+    req(input$BYPStartButton)
+    BrayCurtis <- PPDistance()
+    
+    
+    PPDistance <- pcoa(as.dist(BrayCurtis))
+    PPDistance
+    
+  })
+  
+  # Isolate the axis1 and axis2 coordinates
+  PCoords <- reactive({
+    
+    
+    req(input$BYPStartButton)
+    PPcoa <- PPcoa()
+    
+    PCoords <- data.frame(PCoA1 = PPcoa$vectors[, 1],
+                          PCoA2 = PPcoa$vectors[, 2],
+                          row.names = rownames(PPcoa$vectors)
+    )
+    PCoords
+  })
+  
+  #Isolate the relative corrected eigen values
+  PEigenValues <- reactive({
+    
+    
+    req(input$BYPStartButton)
+    PPcoa <- PPcoa()
+    
+    # Extract relative eigenvalues
+    EigenValues <- PPcoa$values[3]
+    
+    # Extract the first two columns (axis 1 and axis 2)
+    PEigenValues <- data.frame(Axis1 = EigenValues[1,] * 100, Axis2 = EigenValues[2,] * 100)
+    PEigenValues
+  })
+  
+  # Filter the metadata for missing samples after SRS rarefaction
+  PMetaFilt <- reactive({
+    
+    
+    req(input$BYPStartButton)
+    Pcoa <- PPcoa()
+    MetaData <- MainBYMetaTable()
+    SrsTable <- PSrsTable()
+    
+    # Collect the column names after SRS rarefaction
+    PColNames <- colnames(SrsTable)
+    
+    # Filter the metadata table
+    MetaData <-
+      MetaData %>% filter(SampleName %in% PColNames)
+    MetaData
+    MetaData
+  })
+  
+  # Fit the environment variables to the PCoA coordinates
+  PEnvFit <- reactive({
+    
+    
+    req(input$BYPStartButton)
+    Pcoa <- PPcoa()
+    MetaData <- PMetaFilt()
+    SrsTable <- PSrsTable()
+    
+    # convert to a dataframe
+    PVectors <- as.data.frame(Pcoa$vectors)
+    PEnvFit <- envfit(PVectors, MetaData, perm = 10000)
+    
+    ## Scales the arrow vectors so they aren't huge
+    PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * sqrt(PEnvFit$vectors$r))
+    PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$r)
+    PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$pvals)
+    colnames(PEnvFitFinal) <- c("Axis1", "Axis2","R2", "pvalue")
+    PEnvFitFinal$R2_rounded <- round(PEnvFitFinal$R2, 5)
+    PEnvFitFinal$pvalue <- round(PEnvFitFinal$pvalue, 5)
+    PEnvFitFinal
+  })
+  
+  # Filter the data below a given R or p-value threshold
+  PEnvFitFilt <- reactive({
+    
+    req(input$BYPStartButton)
+    PEnvFit <- PEnvFit()
+    
+    # Filter
+    PEnvFitFilt <- filter(PEnvFit,
+                          PEnvFit$pvalue < (input$BYPEnvPThresh) &
+                            PEnvFit$R2 > (input$BYPEnvRThresh))
+    PEnvFitFilt
+  })
+  
+  #Fit taxonomy abundances to PCoA data
+  PTaxonScores <- reactive({
+    
+    
+    req(input$BYPStartButton)
+    MetaData <- PMetaFilt()
+    FeatureKey <- BYFeatureDataKey()
+    SrsProp <- PPropTable()
+    Pcoa <- PPcoa()
+    
+    # Transpose
+    TSrsProp <- t(SrsProp)
+    
+    # Use the wascores function to calculate weighted average scores 
+    TaxonWeightedScores <- wascores(Pcoa$vectors[, 1:3], TSrsProp)
+    
+    
+    # Remove NA values
+    TaxonWeightedScores[is.na(TaxonWeightedScores)] <- 0
+    
+    # Calculate normalized scores, based on total abundance of each taxon
+    NormWeightedScores <- data.frame(Abundance = (apply(TSrsProp, 2, sum)) / sum(TSrsProp))
+    
+    # Combine weighted scores with normalized abundance
+    TaxonWeightedScores <- cbind(TaxonWeightedScores, NormWeightedScores$Abundance)
+    colnames(TaxonWeightedScores) <- c("Axis1","Axis2","Axis3","Abundance")
+    TaxonWeightedScores <- as.data.frame(TaxonWeightedScores)
+    
+    # Filter based on user-defined taxonomy relative abundance thresholds
+    TaxonWeightedScores <- filter(TaxonWeightedScores,
+                                  TaxonWeightedScores$Abundance > input$BYPTaxaThresh / 100
+    )
+    
+    # Set a FeatureID column, then append taxonomic information using the FeatureKey
+    TaxonWeightedScores$FeatureID <- rownames(TaxonWeightedScores)
+    TaxonWeightedScores <- left_join(TaxonWeightedScores, FeatureKey, by = "FeatureID")
+    
+    TaxonWeightedScores
+    
+  })
+  
+  # Generate the PCoA plot
+  PPlotVisual <- reactive({
+    req(input$BYPStartButton)
+    Pcoa <- PCoords()
+    MetaData <- PMetaFilt()
+    PEnvFitFilt <- PEnvFitFilt()
+    Eigen <- PEigenValues()
+    TaxonScores <- PTaxonScores()
+    
+    # Insert a SampleName column then merge the metadata
+    Pcoa$SampleName <- rownames(Pcoa)
+    Pcoa <- left_join(Pcoa, MetaData, by = "SampleName")
+    
+    # Change to categorical data 
+    Pcoa <- Pcoa %>% mutate_if(!names(.) %in% c("PCoA1", "PCoA2"), factor)
+    
+    # merged_df <-
+    #     merged_df %>% mutate_if(!names(.) %in% c("PCoA1", "PCoA2"), factor)
+    
+    # Define the available shapes and colors
+    # I need to add the option to include a gradient
+    AvailShapes <- c(21, 22, 23, 24, 25, 14, 13:1)
+    AvailColours <- 2:27
+    AvailFill <- 2:27
+    
+    
+    
+    #If the user selects shape options
+    if ((input$BYPShapeChoice) == TRUE){
+      PPlot <- ggplot(Pcoa, aes(x = PCoA1, y = PCoA2)) +
+        geom_point(size = input$BYPSizeSelect, aes(
+          shape = get(isolate(input$BYPShape)),
+          colour = get(input$BYPFillCol),
+          fill = get(input$BYPFillCol))) + 
+        
+        labs(x = paste0("Axis1(",round(Eigen$Axis1,1),"%)"),
+             y = paste0("Axis2(",round(Eigen$Axis2,1),"%)"),
+             
+             fill = input$BYPFillCol,
+             colour = input$BYPFillCol,
+             shape = input$BYPShape
+        ) +
+        
+        scale_shape_manual(values = AvailShapes)
+      
+      # Uses a colour gradient if selected
+      
+      if (input$BYPGradient == TRUE){
+        PPlot <- PPlot + scale_colour_viridis(option = input$BYPPalletSelect,discrete = TRUE, direction = -1)
+        PPlot <- PPlot + scale_fill_viridis(option = input$BYPPalletSelect,discrete = TRUE, direction = -1)
+      } else {
+        PPlot <- PPlot + scale_fill_manual(values = AvailFill) +
+          scale_colour_manual(values = AvailFill)
+      }
+    }
+    
+    #If the user does not select shapes
+    if ((input$BYPShapeChoice) == FALSE){
+      
+      PPlot <- ggplot(data = Pcoa, aes(x = PCoA1, y = PCoA2)) +
+        geom_point(size = input$BYPSizeSelect, aes(
+          colour = !!sym(input$BYPFillCol),
+          fill = !!sym(input$BYPFillCol)
+        )) + 
+        
+        labs(x = paste0("Axis1(",round(Eigen$Axis1,1),"%)"),
+             y = paste0("Axis2(",round(Eigen$Axis2,1),"%)"),
+             
+             fill = input$BYPFillCol,
+             colour = input$BYPFillCol,
+             shape = input$BYPShape
+        )
+      
+      ## If colou r gradient is selected
+      if (input$BYPGradient == TRUE){
+        PPlot <- PPlot + scale_colour_viridis(option = input$BYPPalletSelect,discrete = TRUE, direction = -1)
+        PPlot <- PPlot + scale_fill_viridis(option = input$BYPPalletSelect,discrete = TRUE, direction = -1)
+      } else {
+        PPlot <- PPlot + scale_fill_manual(values = AvailFill) +
+          scale_colour_manual(values = AvailFill)
+      }
+    }
+    
+    #Add coordinates and line segments for the environmental data, but only if it is present 
+    if (dim(PEnvFitFilt)[1] != 0) {
+      PPlot <- PPlot + geom_segment(
+        data = PEnvFitFilt,
+        aes(
+          x = 0,
+          y = 0,
+          xend = PEnvFitFilt$Axis1,
+          yend = PEnvFitFilt$Axis2,
+        ),
+        show.legend = FALSE,
+        arrow = arrow(ends = "last")
+      ) +
+        geom_label(
+          data = PEnvFitFilt,
+          aes(
+            label = rownames(PEnvFitFilt),
+            x = PEnvFitFilt$Axis1 / 2,
+            y = PEnvFitFilt$Axis2 / 2
+          ),
+          size = 4
+        )}
+    
+    #If sample labels are selected:
+    if (input$BYPSampleLabel == TRUE){
+      PPlot <- PPlot +
+        geom_text(aes(label = SampleName))
+    }
+    
+    
+    #Add elipses to the data
+    if ((input$BYPElips) == TRUE) {
+      
+      PPlot <-PPlot + stat_ellipse(aes(color = get(input$BYPFillCol)),
+                                   show.legend = FALSE)
+    }
+    
+    # Add taxon abundance data, but only if it is present
+    if (dim(TaxonScores)[1] != 0) {
+      PPlot = PPlot + geom_point(data = TaxonScores,
+                                 aes(Axis1, Axis2, size = round(Abundance * 100, digits = 0)),
+                                 inherit.aes = FALSE,
+                                 shape = 21,
+                                 fill = NA,
+                                 colour = "black",
+                                 show.legend = TRUE
+      ) +
+        labs(size = "Relative abundance")+
+        scale_size_area(max_size = 15)
+    }
+    
+    if (dim(TaxonScores)[1] != 0) {
+      # Add taxon annotation
+      PPlot <- PPlot + geom_text(
+        data = TaxonScores,
+        aes(Axis1, Axis2, label = Taxon),
+        inherit.aes = FALSE,
+        size = 4
+      )
+    }
+    
+    # Customize plot aesthetics
+    PPlot <- PPlot +
+      theme(
+        panel.grid = element_blank(),
+        text = element_text(colour = "black"),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text = element_text(colour = "black", size = 12),
+        axis.text.x = element_text(
+          angle = 90,
+          hjust = 1,
+          vjust = 0.5,
+          size = 14,
+          face = "plain"
+        ),
+        axis.text.y.left = element_text(size = 14, face = "plain"),
+        legend.text = element_text(face = "italic", size = 16),
+        legend.title = element_text(size = 16),
+        axis.title = element_text(size = 16, face = NULL),
+        axis.text.y = element_text(size = 14),
+        strip.text.x = element_text(size = 10, face = "bold"),
+        panel.spacing = unit(0, "lines"),
+        panel.border = element_rect(
+          colour = "black",
+          size = 1,
+          fill = NA
+        ),
+        axis.ticks = element_line(colour = "black"),
+        axis.ticks.y = element_line(colour = "black"),
+        axis.line.y = element_line(colour = "black")
+      ) +
+      guides(fill = guide_legend(override.aes = list(shape = 22)))
+    
+    # Plot PCoA
+    PPlot
+    
+  })
+  
+  
+  # Downloads the stats table
+  output$BYPEnvFitTableSave <- downloadHandler(
+    filename = "BrayCurtisStats.csv",
+    content = function(Table) {
+      write.csv(PEnvFit(), Table)
+    })
+  
+  output$BYPPlotSave <- downloadHandler(
+    filename = "BrayCurtisTriplot.pdf",
+    contentType = ".pdf",
+    content = function(Pcoa) {
+      ggsave(
+        Pcoa,
+        plot = PPlotVisual(),
+        device = "pdf",
+        height = as.numeric(input$BYPPlotOutH),
+        width = as.numeric(input$BYPPlotOutW),
+        units = "px",
+        scale = 4
+      )
+    })
+  
+  output$BYPPlotDistance <- downloadHandler(
+    filename = "BrayCrutisDistance.csv",
+    content = function(Table) {
+      write.csv(PPDistance(), Table)
+    })
+  
+  output$BYPPlotPcoa <- downloadHandler(
+    filename = "BrayCurtisPcoa.csv",
+    content = function(Table) {
+      write.csv(PCoords(), Table)
+    })
+  
+  
+  # Render the stats table
+  output$BYPTableOut <- renderTable({
+    Table <- PEnvFit()
+    Table
+  })
+  
+  # Render the PCoA plot
+  BYPPlotHeight <- reactive(input$BYPPlotOutH)
+  BYPPlotWidth <- reactive(input$BYPPlotOutW)
+  
+  output$BYPPlotOut <- renderPlot({
+    PPlot <- PPlotVisual()
+    PPlot
+  },
+  width = BYPPlotWidth,
+  height = BYPPlotHeight)
+  
+  
+  
  } # End of server
