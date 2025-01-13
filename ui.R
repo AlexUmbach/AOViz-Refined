@@ -477,6 +477,7 @@ ui <- navbarPage(id = "navbarID",
                  tabPanel("Bray-Curtis PCoA Triplot",
                           sidebarLayout(
                             sidebarPanel(
+                              checkboxInput("PRarefyData","Do you want to rarefy?",value = TRUE),
                               numericInput("SrsDepth","Select your SRS depth.",min = 0, value = 1000),
                               # actionButton("PStartButton",label = "Start!",width = 335),
                               hr(style = "border-width: 3px"),
@@ -553,6 +554,7 @@ ui <- navbarPage(id = "navbarID",
                             sidebarPanel(
                               fileInput("UniTree","Please upload your rooted phylogenetic tree (in Newick format)"),
                               hr(style = "border-width: 3px"),
+                              checkboxInput("UniRarefyData","Do you want to rarefy?", value = TRUE),
                               numericInput("UniDepth", label = "Select your sampling depth.", value = 5000),
                               selectInput("UniDissSelect",label = "Select your type of UniFrac", choices = c("unweighted","weighted")),
                               # actionButton("UniStartButton","Start!", width = 335),
@@ -621,7 +623,7 @@ ui <- navbarPage(id = "navbarID",
                           )
                  ),
                  
-                 #### Next Plot ####
+                 #### Build your own Triplot ####
                  tabPanel("Build Your Own Triplot",
                           sidebarLayout(
                             sidebarPanel(

@@ -1647,10 +1647,16 @@
     FeatureKey <- FeatureDataKey()
     SrsDepth <- isolate(input$SrsDepth)
 
+    if (input$PRarefyData == TRUE){
     SrsTable <- SRS(SrsTable, Cmin = SrsDepth, seed = 123)
     rownames(SrsTable) <- FeatureKey$FeatureID
-    
     SrsTable
+    }
+    
+    else if (input$PRarefyData == FALSE){
+      rownames(SrsTable) <- FeatureKey$FeatureID
+      SrsTable
+    }
   })
   
   # Generate a proportion table
@@ -1698,7 +1704,6 @@
     req(input$PStartButton)
     BrayCurtis <- PPDistance()
     
-
     PPDistance <- pcoa(as.dist(BrayCurtis))
     PPDistance
     
@@ -2101,9 +2106,16 @@
     MetaData <- MainMetaTable()
     FeatureKey <- FeatureDataKey()
 
+    
+    if(input$UniRarefyData == TRUE){
     SrsTable <- SRS(ASVTable, Cmin = isolate(input$UniDepth), seed = 123)
     rownames(SrsTable) <- FeatureKey$FeatureID
     SrsTable
+    }
+    else if (input$UniRarefyData == FALSE){
+      rownames(ASVTable) <- FeatureKey$FeatureID
+      ASVTable
+    }
   })
   
   # Create a proportion table
@@ -2792,7 +2804,7 @@
 
   
   # Create an SRS table
-  PSrsTable <- reactive({
+  BYPSrsTable <- reactive({
     # 
     # req(input$BYPStartButton)
     # 
@@ -2807,7 +2819,7 @@
   })
   
   # Generate a proportion table
-  PPropTable <- reactive({
+  BYPPropTable <- reactive({
     req(input$BYPStartButton)
     
     
@@ -2841,7 +2853,7 @@
   })
   
   #Generate the distance matrix table
-  PPDistance <- reactive({
+  BYPPDistance <- reactive({
     # 
     # req(input$BYPStartButton)
     # PPropTable <- PPropTable()
@@ -2853,10 +2865,10 @@
   })
   
   # Generate the PCoA plot
-  PPcoa <- reactive({
+  BYPPcoa <- reactive({
     
     req(input$BYPStartButton)
-    BrayCurtis <- PPDistance()
+    BrayCurtis <- BYPPDistance()
     
     
     PPDistance <- pcoa(as.dist(BrayCurtis))
@@ -2865,11 +2877,11 @@
   })
   
   # Isolate the axis1 and axis2 coordinates
-  PCoords <- reactive({
+  BYPCoords <- reactive({
     
     
     req(input$BYPStartButton)
-    PPcoa <- PPcoa()
+    PPcoa <- BYPPcoa()
     
     PCoords <- data.frame(PCoA1 = PPcoa$vectors[, 1],
                           PCoA2 = PPcoa$vectors[, 2],
@@ -2879,11 +2891,11 @@
   })
   
   #Isolate the relative corrected eigen values
-  PEigenValues <- reactive({
+  BYPEigenValues <- reactive({
     
     
     req(input$BYPStartButton)
-    PPcoa <- PPcoa()
+    PPcoa <- BYPPcoa()
     
     # Extract relative eigenvalues
     EigenValues <- PPcoa$values[3]
@@ -2894,13 +2906,13 @@
   })
   
   # Filter the metadata for missing samples after SRS rarefaction
-  PMetaFilt <- reactive({
+  BYPMetaFilt <- reactive({
     
     
     req(input$BYPStartButton)
-    Pcoa <- PPcoa()
+    Pcoa <- BYPPcoa()
     MetaData <- MainBYMetaTable()
-    SrsTable <- PSrsTable()
+    SrsTable <- BYPSrsTable()
     
     # Collect the column names after SRS rarefaction
     PColNames <- colnames(SrsTable)
@@ -2913,13 +2925,13 @@
   })
   
   # Fit the environment variables to the PCoA coordinates
-  PEnvFit <- reactive({
+  BYPEnvFit <- reactive({
     
     
     req(input$BYPStartButton)
-    Pcoa <- PPcoa()
-    MetaData <- PMetaFilt()
-    SrsTable <- PSrsTable()
+    Pcoa <- BYPPcoa()
+    MetaData <- BYPMetaFilt()
+    SrsTable <- BYPSrsTable()
     
     # convert to a dataframe
     PVectors <- as.data.frame(Pcoa$vectors)
@@ -2936,10 +2948,10 @@
   })
   
   # Filter the data below a given R or p-value threshold
-  PEnvFitFilt <- reactive({
+  BYPEnvFitFilt <- reactive({
     
     req(input$BYPStartButton)
-    PEnvFit <- PEnvFit()
+    PEnvFit <- BYPEnvFit()
     
     # Filter
     PEnvFitFilt <- filter(PEnvFit,
@@ -2949,14 +2961,14 @@
   })
   
   #Fit taxonomy abundances to PCoA data
-  PTaxonScores <- reactive({
+  BYPTaxonScores <- reactive({
     
     
     req(input$BYPStartButton)
-    MetaData <- PMetaFilt()
+    MetaData <- BYPMetaFilt()
     FeatureKey <- BYFeatureDataKey()
-    SrsProp <- PPropTable()
-    Pcoa <- PPcoa()
+    SrsProp <- BYPPropTable()
+    Pcoa <- BYPPcoa()
     
     # Transpose
     TSrsProp <- t(SrsProp)
@@ -2990,13 +3002,13 @@
   })
   
   # Generate the PCoA plot
-  PPlotVisual <- reactive({
+  BYPPlotVisual <- reactive({
     req(input$BYPStartButton)
-    Pcoa <- PCoords()
-    MetaData <- PMetaFilt()
-    PEnvFitFilt <- PEnvFitFilt()
-    Eigen <- PEigenValues()
-    TaxonScores <- PTaxonScores()
+    Pcoa <- BYPCoords()
+    MetaData <- BYPMetaFilt()
+    PEnvFitFilt <- BYPEnvFitFilt()
+    Eigen <- BYPEigenValues()
+    TaxonScores <- BYPTaxonScores()
     
     # Insert a SampleName column then merge the metadata
     Pcoa$SampleName <- rownames(Pcoa)
@@ -3185,7 +3197,7 @@
     content = function(Pcoa) {
       ggsave(
         Pcoa,
-        plot = PPlotVisual(),
+        plot = BYPPlotVisual(),
         device = "pdf",
         height = as.numeric(input$BYPPlotOutH),
         width = as.numeric(input$BYPPlotOutW),
@@ -3197,19 +3209,19 @@
   output$BYPPlotDistance <- downloadHandler(
     filename = "BrayCrutisDistance.csv",
     content = function(Table) {
-      write.csv(PPDistance(), Table)
+      write.csv(BYPPDistance(), Table)
     })
   
   output$BYPPlotPcoa <- downloadHandler(
     filename = "BrayCurtisPcoa.csv",
     content = function(Table) {
-      write.csv(PCoords(), Table)
+      write.csv(BYPCoords(), Table)
     })
   
   
   # Render the stats table
   output$BYPTableOut <- renderTable({
-    Table <- PEnvFit()
+    Table <- BYPEnvFit()
     Table
   })
   
@@ -3218,7 +3230,7 @@
   BYPPlotWidth <- reactive(input$BYPPlotOutW)
   
   output$BYPPlotOut <- renderPlot({
-    PPlot <- PPlotVisual()
+    PPlot <- BYPPlotVisual()
     PPlot
   },
   width = BYPPlotWidth,
