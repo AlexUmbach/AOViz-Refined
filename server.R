@@ -796,8 +796,12 @@
     ColourNumber <- length(unique(BarTable[["TaxonLevel"]]))
     
     MyColours <- colorRampPalette(brewer.pal(8, "Paired"))(ColourNumber)
+    
+    
+    # From Laura. Colourblind Friendly
+    SpecialColours <- c("#771155","#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788")
     ## colour fill using Brewers
-    BarPlot <- BarPlot + scale_fill_manual(values = MyColours)
+    BarPlot <- BarPlot + scale_fill_manual(values = SpecialColours)
     #bar_plot <- bar_plot + scale_fill_brewer(palette = "Paired")
     
     BarPlot = BarPlot + ylab(
@@ -1693,9 +1697,16 @@
     PPropTable <- PPropTable()
     
     TPropTable <- t(PPropTable)
+    
+    if(input$PDistMatrix == "Jaccard"){
+      BrayCurtis <- as.matrix(vegdist(TPropTable, method = "jaccard"))
+      BrayCurtis
+    }
+    else if (input$PDistMatrix == "BrayCurtis"){
     BrayCurtis <- as.matrix(vegdist(TPropTable, method = "bray"))
     BrayCurtis
-    
+    }
+    BrayCurtis
   })
   
   # Generate the PCoA plot
@@ -1767,7 +1778,8 @@
     PEnvFit <- envfit(PVectors, MetaData, perm = 10000)
     
     ## Scales the arrow vectors so they aren't huge
-    PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * sqrt(PEnvFit$vectors$r))
+    # PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * sqrt(PEnvFit$vectors$r))
+    PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * (PEnvFit$vectors$r)/input$PEnvScaling)
     PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$r)
     PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$pvals)
     colnames(PEnvFitFinal) <- c("Axis1", "Axis2","R2", "pvalue")
@@ -2266,7 +2278,8 @@
       PcoaVectors <- as.data.frame(Pcoa$vectors)
       EnvFit <- envfit(PcoaVectors, MetaData, perm = 10000)
       ## Scales the arrow vectors so they aren't huge
-      EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * sqrt(EnvFit$vectors$r))
+      # EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * sqrt(EnvFit$vectors$r))
+      EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * (EnvFit$vectors$r)/input$UniPEnvScaling)
       EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$r)
       EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$pvals)
       colnames(EnvFitDf) <- c("Axis1", "Axis2", "R2", "pvalue")
@@ -2282,7 +2295,8 @@
       PcoaVectors <- as.data.frame(Pcoa$vectors)
       EnvFit <- envfit(PcoaVectors, MetaData, perm = 10000)
       ## Scales the arrow vectors so they aren't huge
-      EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * sqrt(EnvFit$vectors$r))
+      # EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * sqrt(EnvFit$vectors$r))
+      EnvFitDf <- as.data.frame(EnvFit$vectors$arrows * (EnvFit$vectors$r)/input$UniPEnvScaling)
       EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$r)
       EnvFitDf <- cbind(EnvFitDf, EnvFit$vectors$pvals)
       colnames(EnvFitDf) <- c("Axis1", "Axis2", "R2", "pvalue")
@@ -2938,7 +2952,8 @@
     PEnvFit <- envfit(PVectors, MetaData, perm = 10000)
     
     ## Scales the arrow vectors so they aren't huge
-    PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * sqrt(PEnvFit$vectors$r))
+    # PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * sqrt(PEnvFit$vectors$r))
+    PEnvFitFinal <- as.data.frame(PEnvFit$vectors$arrows * (PEnvFit$vectors$r)/input$BYOPEnvScaling)
     PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$r)
     PEnvFitFinal <- cbind(PEnvFitFinal, PEnvFit$vectors$pvals)
     colnames(PEnvFitFinal) <- c("Axis1", "Axis2","R2", "pvalue")
