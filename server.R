@@ -2016,8 +2016,14 @@
           axis.ticks.y = element_line(colour = "black"),
           axis.line.y = element_line(colour = "black")
         ) +
-        guides(fill = guide_legend(override.aes = list(shape = 22)))
-      
+        guides(fill = guide_legend(override.aes = list(shape = 22))) +
+        labs(y = paste0("Showing taxa > than ",
+                        isolate(input$PTaxaThresh),
+                        "% relative abundance",
+                        "\n",
+                        paste0("Axis1(",
+                               round(Eigen$Axis2,1),"%)")))
+  
       # Plot PCoA
       PPlot
     
@@ -2559,7 +2565,13 @@
         axis.ticks.y = element_line(colour = "black"),
         axis.line.y = element_line(colour = "black")
       ) +
-      guides(fill = guide_legend(override.aes = list(shape = 22)))
+      guides(fill = guide_legend(override.aes = list(shape = 22))) +
+      labs(y = paste0("Showing taxa > than ",
+                      isolate(input$UniTaxaThresh),
+                      "% relative abundance",
+                      "\n",
+                      paste0("Axis1(",
+                             round(Eigen$Axis2,1),"%)")))
     
     # Plot PCoA
     UniPlot
